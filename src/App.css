@@ -1,9 +1,126 @@
-/* 基础重置与全局样式 */
+/* 强制撑满全宽，覆盖 Vite 的默认居中限制 */
+#root {
+  max-width: 100% !important; 
+  width: 100%;
+  padding: 0 !important; /* 去除四周多余的留白 */
+  margin: 0 !important;
+}
+
+/* 让我们的主容器也能贴近边缘，只保留一点点呼吸空间 */
+.app-root {
+  width: 100%;
+  padding: 20px 30px; /* 这里的 30px 控制距离屏幕左右边缘的距离，你可以自行调大调小 */
+  box-sizing: border-box;
+}
+
+
+/* ================= 基础重置与全局样式 ================= */
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-body { background-color: #f4f6f8; color: #333; padding: 20px; display: flex; flex-direction: column; }
 
-/* 三栏弹性布局 */
-.main-container { display: flex; gap: 20px; flex: 1; overflow: hidden; }
-.column { flex: 1; display: flex; flex-direction: column; gap: 20px; height: 100%; }
+/* 页面根容器，占满全屏 */
+.app-root {
+  width: 100%;
+  padding: 20px 30px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
 
-/* ... (以及其他的卡片样式等) ... */
+/* 顶部标题居左 */
+.page-header { text-align: left; margin-bottom: 20px; }
+.page-header h1 { font-size: 35px; font-weight: bolder; color: #1c2833; letter-spacing: 1px; }
+
+/* ================= 第一页：三栏弹性布局 ================= */
+.main-container { 
+  display: flex; 
+  gap: 20px; 
+  height: calc(100vh - 100px); /* 高度对齐单个网页的全屏形状 */
+  min-height: 650px; 
+  width: 100%; 
+}
+
+.column { flex: 1; display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+
+/* 通用卡片样式：加入边框，类似第二页的看板风格 */
+.card { 
+  border: 1px solid #d9d9d9; 
+  border-radius: 10px; 
+  padding: 20px; 
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); 
+  display: flex; 
+  flex-direction: column; 
+  height: 100%; 
+}
+
+/* 标题居左，字号大于正文 */
+.card-title { 
+  font-size: 19px; 
+  font-weight: bold; 
+  color: #2c3e50; 
+  text-align: left; 
+  margin-bottom: 15px; 
+  border-bottom: 1px solid rgba(0,0,0,0.06); 
+  padding-bottom: 10px; 
+}
+
+/* 4. 每个卡片背景色区分不同内容 (极浅的柔和色彩) */
+.left-col .card { background-color: #f8fbff; border-color: #d6e4ff; } /* 自然语言输入：浅蓝 */
+.center-col .card {background-color: #f8fbff; border-color: #d6e4ff; } /* 手动添加：浅橙 */
+.right-col .card { background-color: #f8fbff; border-color: #d6e4ff; } /* 回顾与建议：浅绿 */
+
+/* ================= 表单排版 (一行两个) ================= */
+.form-row { display: flex; gap: 15px; margin-bottom: 15px; }
+.form-group { flex: 1; display: flex; flex-direction: column; text-align: left; }
+.form-group label { font-size: 13px; font-weight: bold; color: #555; margin-bottom: 5px; }
+input, select, textarea { 
+  width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; background: #fff; outline: none; 
+}
+input:focus, select:focus, textarea:focus { border-color: #1890ff; }
+textarea.notes { height: 80px; resize: none; }
+
+/* 按钮通用蓝色 */
+.btn-primary { background: #1890ff; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; transition: 0.2s; }
+.btn-primary:hover { background: #096dd9; }
+
+/* ================= 左侧：AI 历史记录 ================= */
+.input-wrapper { position: relative; margin-bottom: 10px; }
+
+/* ================= 右侧：2x2 网格与卡片 ================= */
+.review-grid { 
+  display: grid; 
+  grid-template-columns: 1fr 1fr; /* 强制两列等宽 */
+  grid-template-rows: 1fr 1fr;    /* 强制两行等高 */
+  gap: 12px; 
+  margin-bottom: 20px; 
+}
+
+/* 小卡片内部布局：标题 + 数量 */
+.review-item { 
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center; 
+  padding: 15px; border-radius: 8px; cursor: pointer; border: 1px solid #eee; transition: all 0.2s; 
+}
+.review-item:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.08); filter: brightness(0.95); }
+
+.review-title { font-size: 13px; font-weight: bold; margin-bottom: 8px; }
+.review-count { font-size: 22px; font-weight: 900; }
+
+/* 回顾小卡片专属马卡龙底色 */
+.item-inbox { background: #ffffff; border-color: #d9d9d9; color: #141520; }
+.item-action {background: #ffffff; border-color: #d9d9d9; color: #141520; }
+.item-waiting {background: #ffffff; border-color: #d9d9d9; color: #141520; }
+.item-trash {background: #ffffff; border-color: #d9d9d9; color: #141520;    ; }
+
+
+
+.suggestion-list li { 
+  background: #ffffff; 
+  border-left: 3px solid #1890ff; 
+  padding: 12px; 
+  margin-bottom: 10px; 
+  border-radius: 4px; 
+  font-size: 13px; /* 这里控制字号大小 */
+  color: #555; 
+  border: 1px solid #e8e8e8; 
+  border-left-width: 4px;
+  text-align: left; /* <--- 新增这一行，让文字居左对齐 */
+}

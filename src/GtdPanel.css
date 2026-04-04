@@ -1,0 +1,172 @@
+/* ================== 布局容器 ================== */
+.gtd-panel-wrapper { width: 100%; padding: 20px 0; }
+.divider { border: 0; height: 2px; background: #e0e6ed; margin-bottom: 20px; }
+
+.panel-container { 
+  display: flex; 
+  gap: 20px; 
+  height: calc(100vh - 100px); 
+  min-height: 600px; 
+  width: 100%; 
+}
+
+/* 调整比例：左侧看板占 72%，右侧占 28% */
+/* 修改：让左侧区域变成垂直排列，好让总标题排在最上面 */
+.panel-left { flex: 72; display: flex; gap: 15px; min-width: 0; }
+.panel-right { flex: 28; display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+
+/* ================== 1. 左侧看板竖栏（明显的灰色底框） ================== */
+.kanban-column {
+  flex: 1; 
+  background: #f0f2f5; /* 明显的浅灰底色 */
+  border: 1px solid #d9d9d9; /* 灰色的边框区分 */
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  padding: 15px 12px;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+  align-items: stretch;
+  justify-content: flex-start;
+
+}
+
+.kanban-title { font-size: 15px; color: #333; margin-bottom: 15px; padding: 0 5px; }
+
+.kanban-content {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-right: 4px; 
+  justify-content: flex-start;
+  align-items: stretch;
+
+}
+.kanban-content::-webkit-scrollbar { width: 6px; }
+.kanban-content::-webkit-scrollbar-thumb { background: #d0d4db; border-radius: 3px; }
+
+
+/* ====== 2 & 4. 具体事项小卡片（去侧边颜色，统一纯白底色） ====== */
+/* ====== 2 & 4. 具体事项小卡片（去侧边颜色，统一纯白底色） ====== */
+.task-card {
+  background: #ffffff; /* 统一纯白底色 */
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  /* 已经删除了 border-left，去掉了左边的颜色条 */
+  transition: box-shadow 0.2s;
+  text-align: left; /* 强制卡片内部基础内容靠左 */
+}
+.task-card:hover { box-shadow: 0 4px 8px rgba(0,0,0,0.12); }
+.task-header { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px;justify-content: flex-start; }
+.task-header input[type="checkbox"] { margin-top: 3px; cursor: pointer; transform: scale(1.1); }
+.task-title { font-size: 14px;text-align: left; font-weight: bold; color: #2c3e50; line-height: 1.3;  }
+.task-desc { font-size: 12px; color: #7f8c8d; margin-bottom: 10px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.task-meta { display: flex; justify-content: space-between; font-size: 11px; color: #95a5a6; }
+.task-meta .highlight { color: #e74c3c; font-weight: bold; background: #fdf2f0; padding: 2px 4px; border-radius: 4px; }
+.task-project { background: #f0f3f4; padding}
+
+/* ================== 右侧区域 ================== */
+/* =========================================================
+   右侧区域：进行中的项目卡片 (Project Card)
+   ========================================================= */
+
+/* 滚动区域留出内边距，防止滚动条挡住卡片阴影 */
+.vertical-scroll { 
+  overflow-y: auto; 
+  flex: 1; 
+  padding-right: 8px; 
+  padding-bottom: 10px;
+}
+
+/* 1. 项目卡片外壳：白底、边框、左对齐、左侧带有颜色条 */
+.project-card { 
+  background: #ffffff; 
+  border: 1px solid #e6e8eb; 
+  border-radius: 8px; 
+  padding: 17px; 
+  margin-bottom: 10px; 
+  margin-top: 10px;
+  cursor: pointer; 
+  text-align: left; /* 【关键】强制卡片内容居左，解决截图中的居中问题 */
+  box-shadow: 0 2px 4px rgba(0,0,0,0.03); 
+  transition: all 0.2s ease; 
+}
+
+
+
+/* 2. 卡片标题栏：标题和状态分居左右两端 */
+.project-card h4 { 
+  display: flex; 
+  justify-content: space-between; /* 两端对齐 */
+  align-items: center; 
+  font-size: 14px; 
+  font-weight: bold; 
+  color: #2c3e50; 
+  margin: 0 0 8px 0; /* 标题与下方描述的间距 */
+}
+
+/* 3. 卡片右上角的状态小标签（例如：进行中、缺资源） */
+.project-card h4 span { 
+  font-size: 11px; 
+  color: #d48806; 
+  background: #fffbe6; /* 浅黄色背景 */
+  border: 1px solid #ffe58f;
+  padding: 2px 8px; 
+  border-radius: 12px; /* 圆角胶囊形状 */
+  font-weight: normal; 
+}
+
+/* 4. 卡片下方的描述文字 */
+.project-card p { 
+  font-size: 12px; 
+  color: #7f8c8d; 
+  margin: 0; 
+  line-height: 1.4; 
+}
+
+/* ====== 5. 右下：外置标签表单（与上方 1:1，标签居左变小） ====== */
+.add-project-area { 
+  flex: 3; /* 关键：设置 flex: 1 让它占据右侧  高度 */
+  overflow-y: auto; /* 如果表单太长可以在内部滚动 */
+}
+.project-form { display: flex; flex-direction: column; gap: 12px; }
+.form-field { display: flex; flex-direction: column; gap: 5px; }
+.form-field label { 
+  font-size: 11.3px; /* 字体改小 */
+  font-weight: bold; 
+  color: #777; 
+  text-align: left; /* 强制居左对齐 */
+  width: 100%;
+}
+.form-field input, .form-field textarea { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; font-size: 13px; resize: none; background: #fafafa; transition: border-color 0.2s; }
+.form-field input:focus, .form-field textarea:focus { border-color: #1890ff; outline: none; background: #fff; }
+
+/* ====== 3. 全局按钮改为标准蓝色 ====== */
+.btn-primary {
+  background: #1890ff; /* 标准的亮蓝色 */
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 15px;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.3s;
+}
+.btn-primary:hover {
+  background: #096dd9; /* 鼠标悬浮时颜色加深 */
+}
+
+/* 新增：总标题的样式 */
+.kanban-main-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #2c3e50;
+  text-align: left;
+  margin-bottom: 15px;
+  padding-left: 5px;
+}
+
+
