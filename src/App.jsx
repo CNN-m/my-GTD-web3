@@ -1,6 +1,7 @@
 import React from 'react';
 import './App.css'; 
 import GtdPanel from './GtdPanel'; // 引入第二页的看板组件
+import SchedulePanel from './SchedulePanel'; // 引入全新的日历日程模块
 
 export default function App() {
   
@@ -74,10 +75,11 @@ export default function App() {
                 <div className="form-group">
                   <label htmlFor="gtdOption">GTD选项</label>
                   <select id="gtdOption">
-                    <option value="1">执行项（下一步行动）</option>
+                    <option value="1">下一步行动（一步完成）</option>
                     <option value="2">项目（多步才能完成）</option>
                     <option value="3">延后/将来可能</option>
                     <option value="4">删除/垃圾</option>
+                    <option value="5">日程表</option>
                   </select>
                 </div>
                 <div className="form-group">
@@ -105,6 +107,7 @@ export default function App() {
                   <datalist id="projectList">
                     <option value="官网重构"></option>
                     <option value="Q3营销计划"></option>
+                    <option value="暂无项目"></option>
                   </datalist>
                 </div>
               </div>
@@ -170,9 +173,12 @@ export default function App() {
 
       </main>
 
-      {/* ==================== 第二屏：看板模块 ==================== */}
+{/* ==================== 第二屏：看板模块 ==================== */}
       <GtdPanel /> 
 
-    </div>
-  );
-}
+      {/* ==================== 第三屏：日程表面板 (在这里！) ==================== */}
+      <SchedulePanel />
+
+    </div> // 这是一个网页的总结尾标签
+  );       // 这是 return 的结尾
+}          // 这是整个 App 函数的结尾

@@ -64,9 +64,9 @@
 }
 
 /* 4. 每个卡片背景色区分不同内容 (极浅的柔和色彩) */
-.left-col .card { background-color: #f8fbff; border-color: #d6e4ff; } /* 自然语言输入：浅蓝 */
-.center-col .card {background-color: #f8fbff; border-color: #d6e4ff; } /* 手动添加：浅橙 */
-.right-col .card { background-color: #f8fbff; border-color: #d6e4ff; } /* 回顾与建议：浅绿 */
+.left-col .card { background-color: #f8f9fa; border-color: #d6e4ff; } /* 自然语言输入：浅蓝 */
+.center-col .card {background-color: #f8f9fa; border-color: #d6e4ff; } /* 手动添加：浅橙 */
+.right-col .card {background-color: #f8f9fa ; border-color: #d6e4ff; } /* 回顾与建议：浅绿 */
 
 /* ================= 表单排版 (一行两个) ================= */
 .form-row { display: flex; gap: 15px; margin-bottom: 15px; }
