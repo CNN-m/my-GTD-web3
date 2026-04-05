@@ -1,37 +1,27 @@
 import React, { useState } from 'react';
 import './SchedulePanel.css';
 
-export default function SchedulePanel() {
-  // 默认设置为 2026年4月5日 (当前系统时间)
+// 【修改 1】：张开嘴巴，接收 App.jsx 传过来的 globalTasks
+export default function SchedulePanel({ globalTasks = [] }) {
+  // 保持当前日期为你的设定时间 2026年4月5日
   const [currentDate, setCurrentDate] = useState(new Date(2026, 3, 5)); 
   const [selectedDate, setSelectedDate] = useState(new Date(2026, 3, 5));
 
-  // 模拟从后端获取的当月任务数据
-  const [tasks, setTasks] = useState([
-    { id: 1, date: '2026-04-05', title: '完成官网重构视觉定稿', time: '10:00 - 12:00', desc: '核对首页及产品页的黑白灰极简设计风格是否达标。', priority: '高', completed: false },
-    { id: 2, date: '2026-04-05', title: '周度团队同步会', time: '14:30 - 15:30', desc: '对齐 Q3 营销计划的初步资源缺口。', priority: '中', completed: false },
-    { id: 3, date: '2026-04-06', title: '提交财务预算审批', time: '16:00 - 16:30', desc: '附带最新的 ROI 预测模型。', priority: '高', completed: false },
-  ]);
+  // 【修改 2】：已经删除了这里原本写死的 const [tasks, setTasks] = useState(...)
 
   // 日历逻辑：生成 5x7 (35格) 的日期数组
   const getDaysInMonth = (year, month) => {
-    const firstDay = new Date(year, month, 1).getDay(); // 当月第一天是星期几
-    const daysInMonth = new Date(year, month + 1, 0).getDate(); // 当月总天数
-    
-    // 将星期日(0)转换为7，方便以星期一为起始计算
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
     const startOffset = firstDay === 0 ? 6 : firstDay - 1; 
-    
     const days = [];
-    // 填充上个月的尾巴
     const prevMonthDays = new Date(year, month, 0).getDate();
     for (let i = startOffset - 1; i >= 0; i--) {
       days.push({ day: prevMonthDays - i, isCurrentMonth: false, fullDate: new Date(year, month - 1, prevMonthDays - i) });
     }
-    // 填充当月
     for (let i = 1; i <= daysInMonth; i++) {
       days.push({ day: i, isCurrentMonth: true, fullDate: new Date(year, month, i) });
     }
-    // 填充下个月的开头，补齐 35 格 (5行 * 7列)
     let nextMonthDay = 1;
     while (days.length < 35) {
       days.push({ day: nextMonthDay++, isCurrentMonth: false, fullDate: new Date(year, month + 1, nextMonthDay - 1) });
@@ -42,7 +32,7 @@ export default function SchedulePanel() {
   const calendarDays = getDaysInMonth(currentDate.getFullYear(), currentDate.getMonth());
   const weekDays = ['一', '二', '三', '四', '五', '六', '日'];
 
-  // 格式化日期辅助函数 (用于匹配和显示)
+  // 格式化日期辅助函数 (例如输出 2026-04-05)
   const formatDateStr = (date) => {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -52,29 +42,27 @@ export default function SchedulePanel() {
 
   const displayDateStr = `${selectedDate.getFullYear()}年${String(selectedDate.getMonth() + 1).padStart(2, '0')}月${String(selectedDate.getDate()).padStart(2, '0')}日`;
 
-  // 当前选中的日期包含的任务
-  const currentTasks = tasks.filter(task => task.date === formatDateStr(selectedDate));
+  // 【修改 3】：【核心联动】从 globalTasks 里面筛选出状态为 schedule，且日期等于当前选中日期的任务！
+  const currentTasks = globalTasks.filter(task => 
+    task.status === 'schedule' && task.date === formatDateStr(selectedDate)
+  );
 
   // 交互控制
   const handlePrevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
   const handleNextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   const handleToday = () => {
-    const today = new Date(2026, 3, 5); // 回到设定好的当前时间
+    const today = new Date(2026, 3, 5); 
     setCurrentDate(today);
     setSelectedDate(today);
   };
   const handleDateClick = (date) => setSelectedDate(date);
-  
-  const toggleTask = (taskId) => {
-    setTasks(tasks.map(t => t.id === taskId ? { ...t, completed: !t.completed } : t));
-  };
 
   return (
     <div className="schedule-panel-wrapper">
       <hr className="divider" />
       <div className="schedule-container">
         
-        {/* ================= 左侧：日历模块 (65%) ================= */}
+        {/* ================= 左侧：日历模块 ================= */}
         <div className="schedule-left">
           <div className="cal-header">
             <h2 className="cal-title">日程表</h2>
@@ -87,15 +75,16 @@ export default function SchedulePanel() {
           </div>
 
           <div className="cal-grid">
-            {/* 星期表头 */}
             {weekDays.map(day => (
               <div key={day} className="cal-weekday">{day}</div>
             ))}
             
-            {/* 35格日期 */}
             {calendarDays.map((item, index) => {
               const isSelected = formatDateStr(item.fullDate) === formatDateStr(selectedDate);
               const isToday = formatDateStr(item.fullDate) === formatDateStr(new Date(2026, 3, 5));
+              
+              // 【修改 4】：判断全局任务中，有没有某一项任务的日期刚好等于这个格子的日期
+              const hasTask = globalTasks.some(t => t.status === 'schedule' && t.date === formatDateStr(item.fullDate));
               
               return (
                 <div 
@@ -104,15 +93,15 @@ export default function SchedulePanel() {
                   onClick={() => handleDateClick(item.fullDate)}
                 >
                   <span className="cell-date">{item.day}</span>
-                  {/* 可在此处扩展：如果在 tasks 中查到当日有任务，显示一个小灰点 */}
-                  {tasks.some(t => t.date === formatDateStr(item.fullDate)) && <div className="task-dot"></div>}
+                  {/* 如果这一天有任务，显示一个小灰点 */}
+                  {hasTask && <div className="task-dot"></div>}
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* ================= 右侧：日程卡片模块 (35%) ================= */}
+        {/* ================= 右侧：日程卡片模块 ================= */}
         <div className="schedule-right">
           <div className="daily-header">
             <h2 className="daily-title">{displayDateStr} <span>今日日程</span></h2>
@@ -120,21 +109,19 @@ export default function SchedulePanel() {
           </div>
 
           <div className="daily-task-list">
+            {/* 动态渲染该日期的日程任务 */}
             {currentTasks.length > 0 ? (
               currentTasks.map(task => (
-                <div key={task.id} className={`daily-task-card ${task.completed ? 'completed' : ''}`}>
+                <div key={task.id} className="daily-task-card">
                   <div className="daily-task-header">
-                    <input 
-                      type="checkbox" 
-                      checked={task.completed} 
-                      onChange={() => toggleTask(task.id)} 
-                    />
+                    <input type="checkbox" />
                     <span className="daily-task-title">{task.title}</span>
                   </div>
                   <div className="daily-task-body">
-                    <div className="daily-task-time">时间：{task.time}</div>
+                    {/* 显示具体的时间点，比如 14:00 */}
+                    <div className="daily-task-time">时间：{task.time.includes(' ') ? task.time.split(' ')[1] : task.time}</div>
                     <div className="daily-task-desc">{task.desc}</div>
-                    <div className="daily-task-priority">优先级：{task.priority}</div>
+                    <div className="daily-task-priority">项目：{task.project}</div>
                   </div>
                 </div>
               ))
