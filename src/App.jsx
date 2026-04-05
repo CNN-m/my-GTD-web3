@@ -5,231 +5,239 @@ import SchedulePanel from './SchedulePanel';
 
 export default function App() {
   
-  // ==================== 1. 全局数据中心 (Global State) ====================
-  // 把原来在 GtdPanel 里的 tasks 移到这里统管
+  // ==================== 1. 全局数据中心 (双数据池) ====================
+  // 任务池
   const [globalTasks, setGlobalTasks] = useState([
-    { id: 101, title: '整理会议录音', desc: '把上午产品讨论会的录音转成文字纪要。', status: 'inbox', time: '无硬性时间', project: '尚未分类', date: '' },
-    { id: 102, title: '给王总回电话', desc: '确认验收时间。', status: 'nextStep', time: '今天 15:00', project: '官网重构', date: '' }
+    { id: 101, title: '整理会议录音', desc: '把上午产品讨论会的录音转成文字纪要。', status: 'inbox', time: '无硬性时间', project: '尚未分类', date: '', priority: 'medium', completed: false },
+    { id: 102, title: '给王总回电话', desc: '确认验收时间。', status: 'nextStep', time: '今天 15:00', project: '官网重构', date: '', priority: 'high', completed: false }
   ]);
 
-  // 全局添加任务的函数
+  // 项目池 (从第二页提拔上来)
+  const [globalProjects, setGlobalProjects] = useState([
+    { id: 1, name: '官网重构', status: '进行中', desc: '进度：已完成原型设计...' },
+    { id: 2, name: 'Q3营销计划', status: '缺资源', desc: '进度：等待财务预算审批...' }
+  ]);
+
   const handleAddGlobalTask = (newTask) => {
-    setGlobalTasks([...globalTasks, { ...newTask, id: Date.now() }]);
+    setGlobalTasks([{ ...newTask, id: Date.now() }, ...globalTasks]);
   };
 
+  const handleAddGlobalProject = (newProject) => {
+    setGlobalProjects([{ ...newProject, id: Date.now() }, ...globalProjects]);
+  };
 
-  // ==================== 2. 第一页本地逻辑 ====================
+  // ==================== 2. AI 批量解析 ====================
+  const [chatHistory, setChatHistory] = useState([]);
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [aiParsedTasks, setAiParsedTasks] = useState([]); 
+
   const handleAiSubmit = () => {
-    console.log('向AI发送计划');
-    alert('AI 已接收你的计划！');
+    const aiInputBox = document.getElementById('aiInput');
+    const userText = aiInputBox.value;
+    if (!userText.trim()) return;
+
+    setChatHistory(prev => [{ role: 'user', text: userText, id: Date.now() }, ...prev]);
+    aiInputBox.value = '';
+
+    setTimeout(() => {
+      setChatHistory(prev => [{ role: 'ai', text: '已为您将长段落拆解为多个子任务，请在弹窗中检查并确认导入。', id: Date.now() }, ...prev]);
+      const mockParsedTasks = [
+        { id: Date.now() + 1, title: 'AI提取任务 1: ' + userText.substring(0, 5), desc: userText, status: 'inbox', priority: 'high', project: '尚未分类', time: '无硬性时间', date: '', completed: false },
+        { id: Date.now() + 2, title: 'AI提取任务 2: 顺便处理...', desc: '自动拆解的补充事项', status: 'nextStep', priority: 'medium', project: '尚未分类', time: '无硬性时间', date: '', completed: false }
+      ];
+      setAiParsedTasks(mockParsedTasks);
+      setIsAiModalOpen(true); 
+    }, 1000);
   };
 
-  // 改造手动提交表单：收集数据并存入全局池
+  const handleAiTaskChange = (taskId, field, value) => {
+    setAiParsedTasks(prev => prev.map(t => t.id === taskId ? { ...t, [field]: value } : t));
+  };
+
+  const removeAiTask = (taskId) => {
+    setAiParsedTasks(prev => prev.filter(t => t.id !== taskId));
+  };
+
+  const handleApproveAiTasks = () => {
+    setGlobalTasks(prev => [...aiParsedTasks, ...prev]);
+    setIsAiModalOpen(false);
+    setAiParsedTasks([]);
+    alert(`成功导入 ${aiParsedTasks.length} 条任务！`);
+  };
+
+  // ==================== 3. 手动表单提交逻辑 ====================
   const handleManualSubmit = (event) => {
     event.preventDefault(); 
-    
-    // 获取表单元素
     const title = event.target.taskTitle.value;
     const desc = event.target.taskDesc.value;
-    const gtdOptionValue = event.target.gtdOption.value; // 获取选中的 value (1, 2, 3, 4, 5)
-    const priority = event.target.taskPriority.value;
+    const gtdOptionValue = event.target.gtdOption.value; 
+    const priority = event.target.taskPriority.value; 
     const projectName = event.target.projectName.value;
-    const startTime = event.target.startTime.value; // 用于日历
+    const startTime = event.target.startTime.value; 
 
-    if (!title.trim()) {
-      alert("请输入任务标题");
-      return;
-    }
+    if (!title.trim()) { alert("请输入任务标题"); return; }
 
-    // 映射 GTD 选项到看板的状态码 (对应 GtdPanel 里的过滤条件)
-    let mappedStatus = 'inbox'; // 默认去收件箱
-    if (gtdOptionValue === "1") mappedStatus = 'nextStep';
-    if (gtdOptionValue === "2") mappedStatus = 'inbox'; // 项目一般需要拆解，先放收件箱
-    if (gtdOptionValue === "3") mappedStatus = 'maybe';
-    if (gtdOptionValue === "4") {
-      alert("已移动到垃圾箱");
+    // 【关键修复】：如果用户选了“2. 项目”
+    if (gtdOptionValue === "2") {
+      const newProject = {
+        name: title,
+        status: '新计划',
+        desc: desc || '暂无描述'
+      };
+      handleAddGlobalProject(newProject);
+      alert('已成功作为“新项目”添加到右侧项目栏！');
       event.target.reset();
-      return; // 垃圾箱的任务直接不存入看板
+      return; // 直接 return，不把它当作普通任务塞进看板
     }
-    if (gtdOptionValue === "6") mappedStatus = 'schedule';
-    if (gtdOptionValue === "6") mappedStatus = 'waiting'; // 假设日程表相关需要等待确认，或者你可以新增一个 status
 
-    // 格式化时间 (如果选了开始时间就显示开始时间，否则显示无)
+    let mappedStatus = 'inbox'; 
+    if (gtdOptionValue === "1") mappedStatus = 'nextStep';
+    if (gtdOptionValue === "3") mappedStatus = 'maybe';
+    if (gtdOptionValue === "4") mappedStatus = 'trash'; 
+    if (gtdOptionValue === "5") mappedStatus = 'schedule';
+    if (gtdOptionValue === "6") mappedStatus = 'waiting'; 
+
     const displayTime = startTime ? startTime.replace('T', ' ') : '无硬性时间';
 
-    // 组装新任务数据
     const newTask = {
-      title: title,
-      desc: desc || '无描述',
-      status: mappedStatus,
-      time: displayTime,
-      project: projectName || '尚未分类',
-      date: startTime ? startTime.split('T')[0] : '' // 提取 YYYY-MM-DD 供日历使用
+      title: title, desc: desc || '无描述', status: mappedStatus, priority: priority, time: displayTime, project: projectName || '尚未分类', date: startTime ? startTime.split('T')[0] : '', completed: false
     };
 
-    // 派发到全局数据池
     handleAddGlobalTask(newTask);
-    alert('成功保存至 GTD 系统！请在下方看板查看。');
-    
-    // 清空表单
+    alert('任务保存成功！');
     event.target.reset();
   };
 
-  const openReview = (type, count) => {
-    console.log(`查看 ${type}，当前包含 ${count} 项代办`);
-    alert(`正在打开 ${type} 面板，共 ${count} 项任务。`);
+  // ==================== 4. 状态回顾 ====================
+  const [reviewModal, setReviewModal] = useState({ isOpen: false, title: '', statusKey: '' });
+  const counts = {
+    inbox: globalTasks.filter(t => t.status === 'inbox' && !t.completed).length,
+    nextStep: globalTasks.filter(t => t.status === 'nextStep' && !t.completed).length,
+    waiting: globalTasks.filter(t => t.status === 'waiting' && !t.completed).length,
+    trash: globalTasks.filter(t => t.status === 'trash').length
   };
+  const openReview = (title, statusKey) => setReviewModal({ isOpen: true, title, statusKey });
+  const closeReview = () => setReviewModal({ isOpen: false, title: '', statusKey: '' });
 
-  // ==================== 3. UI 渲染区域 ====================
   return (
     <div className="app-root">
-      
-      <header className="page-header">
-        <h1>GTD工作流</h1>
-      </header>
+      <header className="page-header"><h1>GTD工作流</h1></header>
 
-      {/* ==================== 第一屏：三栏弹性布局 ==================== */}
       <main className="main-container">
-
-        {/* 左侧栏：自然语言AI输入区 */}
+        {/* 左侧栏：自然语言AI */}
         <section className="column left-col">
           <div className="card">
             <div className="card-title">自然语言输入</div>
             <div className="input-wrapper">
-              <textarea id="aiInput" placeholder="请输入你要执行的计划，AI将帮你智能分析并录入..."></textarea>
+              <textarea id="aiInput" placeholder="输入一堆杂乱的计划，AI帮你拆解..."></textarea>
               <button className="btn-primary submit-btn" onClick={handleAiSubmit}>AI分析</button>
             </div>
-            <div className="history-area" id="chatHistory">
-              <div style={{ color: '#ccc', textAlign: 'center', marginTop: '50px', fontSize: '13px' }}>暂无对话记录</div>
+            <div className="history-area" id="chatHistory" style={{ maxHeight: '300px', overflowY: 'auto', padding: '10px 0' }}>
+              {chatHistory.length === 0 ? <div style={{ color: '#ccc', textAlign: 'center', marginTop: '50px', fontSize: '13px' }}>暂无对话记录</div> : chatHistory.map(msg => (
+                <div key={msg.id} style={{ background: msg.role === 'ai' ? '#f0f2f5' : '#e6f7ff', padding: '10px', borderRadius: '8px', marginBottom: '10px', textAlign: 'left', fontSize: '13px', borderLeft: msg.role === 'ai' ? '3px solid #ccc' : '3px solid #1890ff' }}>
+                  <strong>{msg.role === 'ai' ? '🤖 AI助手' : '👤 您'}: </strong>{msg.text}
+                </div>
+              ))}
             </div>
           </div>
         </section>
 
-        {/* 中间栏：手动添加收件箱 */}
+        {/* 中间栏：手动添加 */}
         <section className="column center-col">
           <div className="card">
             <div className="card-title">手动添加收件箱</div>
-            
             <form id="manualAddForm" onSubmit={handleManualSubmit}>
+              <div className="form-row"><div className="form-group"><label htmlFor="taskTitle">标题</label><input type="text" id="taskTitle" name="taskTitle" required /></div></div>
+              <div className="form-row"><div className="form-group"><label htmlFor="taskDesc">描述</label><textarea id="taskDesc" name="taskDesc" className="notes"></textarea></div></div>
               <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="taskTitle">标题</label>
-                  {/* 重要修复：增加 name 属性以备不时之需 */}
-                  <input type="text" id="taskTitle" name="taskTitle" placeholder="输入任务标题" required />
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="taskDesc">描述</label>
-                  <textarea id="taskDesc" name="taskDesc" className="notes" placeholder="简要描述任务内容..."></textarea>
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="gtdOption">GTD选项</label>
+                <div className="form-group"><label htmlFor="gtdOption">GTD选项</label>
                   <select id="gtdOption" name="gtdOption">
-                    <option value="1">下一步行动（一步完成）</option>
-                    <option value="2">项目（多步才能完成）</option>
-                    <option value="3">延后/将来可能</option>
-                    <option value="4">删除/垃圾</option>
-                    <option value="5">日程表</option>
-                    <option value="6">等待箱</option>
+                    <option value="1">下一步行动</option><option value="2">项目</option><option value="3">延后/将来</option><option value="4">删除/垃圾</option><option value="5">日程表</option><option value="6">等待箱</option>
                   </select>
                 </div>
-                <div className="form-group">
-                  <label htmlFor="taskPriority">优先级</label>
-                  <select id="taskPriority" name="taskPriority">
-                    <option value="high">高 (High)</option>
-                    <option value="medium">中 (Medium)</option>
-                    <option value="low">低 (Low)</option>
-                  </select>
+                <div className="form-group"><label htmlFor="taskPriority">优先级</label>
+                  <select id="taskPriority" name="taskPriority"><option value="high">高 (High)</option><option value="medium">中 (Medium)</option><option value="low">低 (Low)</option></select>
                 </div>
               </div>
-
               <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="nextAction">下一步行动</label>
-                  <input type="text" id="nextAction" name="nextAction" list="actionList" placeholder="选择或输入下一步" />
-                  <datalist id="actionList">
-                    <option value="打电话"></option>
-                    <option value="发邮件"></option>
-                  </datalist>
-                </div>
-                <div className="form-group">
-                  <label htmlFor="projectName">项目</label>
-                  <input type="text" id="projectName" name="projectName" list="projectList" placeholder="选择或输入归属项目" />
-                  <datalist id="projectList">
-                    <option value="官网重构"></option>
-                    <option value="Q3营销计划"></option>
-                    <option value="暂无项目"></option>
-                  </datalist>
-                </div>
+                <div className="form-group"><label htmlFor="nextAction">下一步行动</label><input type="text" id="nextAction" name="nextAction" list="actionList" /></div>
+                <div className="form-group"><label htmlFor="projectName">项目</label><input type="text" id="projectName" name="projectName" list="projectList" /></div>
               </div>
-
               <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="startTime">开始时间</label>
-                  <input type="datetime-local" id="startTime" name="startTime" />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="endTime">结束时间</label>
-                  <input type="datetime-local" id="endTime" name="endTime" />
-                </div>
+                <div className="form-group"><label htmlFor="startTime">开始时间</label><input type="datetime-local" id="startTime" name="startTime" /></div>
+                <div className="form-group"><label htmlFor="endTime">结束时间</label><input type="datetime-local" id="endTime" name="endTime" /></div>
               </div>
-
-              <div className="form-group" style={{ marginBottom: '15px' }}>
-                <label htmlFor="taskNotes">备注</label>
-                <textarea id="taskNotes" name="taskNotes" className="notes" placeholder="添加更多详细信息..."></textarea>
-              </div>
-
+              <div className="form-group" style={{ marginBottom: '15px' }}><label htmlFor="taskNotes">备注</label><textarea id="taskNotes" name="taskNotes" className="notes"></textarea></div>
               <button type="submit" className="btn-primary" style={{ width: '100%' }}>保存至 GTD 系统</button>
             </form>
           </div>
         </section>
 
-        {/* 右侧栏：回顾 (2x2网格) + AI建议 */}
+        {/* 右侧栏：回顾 */}
         <section className="column right-col">
-          {/* ... 右侧回顾和建议内容保持不变 ... */}
           <div className="card">
             <div className="card-title">状态回顾</div>
             <div className="review-grid">
-              <div className="review-item item-inbox" onClick={() => openReview('收件箱', 8)}>
-                <span className="review-title">收件箱待成型</span>
-                <span className="review-count">8</span>
-              </div>
-              <div className="review-item item-action" onClick={() => openReview('下一步行动', 5)}>
-                <span className="review-title">下一步行动</span>
-                <span className="review-count">5</span>
-              </div>
-              <div className="review-item item-waiting" onClick={() => openReview('等待中', 3)}>
-                <span className="review-title">等待中</span>
-                <span className="review-count">3</span>
-              </div>
-              <div className="review-item item-trash" onClick={() => openReview('垃圾箱/备忘', 12)}>
-                <span className="review-title">垃圾箱/备忘</span>
-                <span className="review-count">12</span>
-              </div>
+              <div className="review-item item-inbox" onClick={() => openReview('收件箱待处理', 'inbox')}><span className="review-title">收件箱待成型</span><span className="review-count">{counts.inbox}</span></div>
+              <div className="review-item item-action" onClick={() => openReview('下一步行动', 'nextStep')}><span className="review-title">下一步行动</span><span className="review-count">{counts.nextStep}</span></div>
+              <div className="review-item item-waiting" onClick={() => openReview('等待中', 'waiting')}><span className="review-title">等待中</span><span className="review-count">{counts.waiting}</span></div>
+              <div className="review-item item-trash" onClick={() => openReview('垃圾箱/备忘', 'trash')}><span className="review-title">垃圾箱/备忘</span><span className="review-count">{counts.trash}</span></div>
             </div>
-
             <div className="card-title" style={{ marginTop: '10px' }}>本周建议（AI智能分析）</div>
-            <ul className="suggestion-list" id="aiSuggestions">
+            <ul className="suggestion-list">
               <li>建议优先处理“官网重构”项目，距离截止日期还有3天。</li>
-              <li>您的“收件箱”积压了8个想法，建议本周抽空理清分类。</li>
-              <li>系统发现您在周五下午效率较高，建议将策略规划安排在此时段。</li>
+              <li>您的“收件箱”积压了{counts.inbox}个想法，建议本周理清。</li>
             </ul>
           </div>
         </section>
-
       </main>
 
-      {/* ==================== 第二屏：看板模块 ==================== */}
-      {/* 4. 【关键传递】把全局数据当做礼物 (props) 送给子组件 */}
-      <GtdPanel globalTasks={globalTasks} setGlobalTasks={setGlobalTasks} /> 
-
-      {/* ==================== 第三屏：日程表面板 ==================== */}
+      {/* 【关键】把 globalProjects 也传给第二页 */}
+      <GtdPanel globalTasks={globalTasks} setGlobalTasks={setGlobalTasks} globalProjects={globalProjects} setGlobalProjects={setGlobalProjects} /> 
       <SchedulePanel globalTasks={globalTasks} />
 
+      {/* ==================== 弹窗区域 ==================== */}
+      {isAiModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content ai-modal" style={{ width: '800px', maxWidth: '90vw' }}>
+            <div className="modal-header"><h2>🤖 AI 任务解析结果确认</h2><button onClick={() => setIsAiModalOpen(false)} className="close-btn">×</button></div>
+            <div className="modal-body" style={{ background: '#f4f6f8' }}>
+              <p style={{ fontSize: '13px', color: '#666', marginBottom: '10px' }}>AI 为您拆解了以下任务，请修改确认后批量导入 GTD 系统：</p>
+              {aiParsedTasks.map((t) => (
+                <div key={t.id} className="ai-task-row" style={{ background: '#fff', padding: '15px', borderRadius: '8px', marginBottom: '10px', display: 'flex', gap: '10px', flexWrap: 'wrap', position: 'relative' }}>
+                  <span style={{ position: 'absolute', top: '10px', right: '10px', cursor: 'pointer', color: '#f5222d' }} onClick={() => removeAiTask(t.id)}>🗑️ 舍弃此项</span>
+                  <div className="form-group" style={{ flex: '1 1 100%' }}><label>标题</label><input type="text" value={t.title} onChange={(e) => handleAiTaskChange(t.id, 'title', e.target.value)} style={{ width: '100%' }} /></div>
+                  <div className="form-group" style={{ flex: '1 1 30%' }}><label>GTD 归类</label>
+                    <select value={t.status} onChange={(e) => handleAiTaskChange(t.id, 'status', e.target.value)} style={{ width: '100%' }}>
+                      <option value="inbox">📥 收件箱</option><option value="nextStep">🚀 下一步行动</option><option value="waiting">⏳ 等待箱</option><option value="maybe">💡 也许将来</option><option value="schedule">📅 日程表</option>
+                    </select>
+                  </div>
+                  <div className="form-group" style={{ flex: '1 1 30%' }}><label>优先级</label>
+                    <select value={t.priority} onChange={(e) => handleAiTaskChange(t.id, 'priority', e.target.value)} style={{ width: '100%' }}>
+                      <option value="high">高</option><option value="medium">中</option><option value="low">低</option>
+                    </select>
+                  </div>
+                  <div className="form-group" style={{ flex: '1 1 30%' }}><label>归属项目</label><input type="text" value={t.project} onChange={(e) => handleAiTaskChange(t.id, 'project', e.target.value)} style={{ width: '100%' }}/></div>
+                </div>
+              ))}
+            </div>
+            <div className="modal-header" style={{ justifyContent: 'flex-end', background: '#fff' }}><button className="btn-primary" onClick={handleApproveAiTasks}>全部确认并导入系统</button></div>
+          </div>
+        </div>
+      )}
+
+      {reviewModal.isOpen && (
+        <div className="modal-overlay" onClick={closeReview}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header"><h2>{reviewModal.title}</h2><button onClick={closeReview} className="close-btn">×</button></div>
+            <div className="modal-body">
+              {globalTasks.filter(t => t.status === reviewModal.statusKey).map(task => (
+                <div key={task.id} className="modal-task-card"><h4>{task.title}</h4><p>{task.desc}</p><span className="modal-tag">{task.project}</span></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div> 
   );
 }
