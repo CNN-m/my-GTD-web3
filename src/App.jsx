@@ -1,23 +1,39 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css'; 
 import GtdPanel from './GtdPanel'; 
 import SchedulePanel from './SchedulePanel'; 
 
 export default function App() {
   
-  // ==================== 1. 全局数据中心 (双数据池) ====================
-  // 任务池
-  const [globalTasks, setGlobalTasks] = useState([
-    { id: 101, title: '整理会议录音', desc: '把上午产品讨论会的录音转成文字纪要。', status: 'inbox', time: '无硬性时间', project: '尚未分类', date: '', priority: 'medium', completed: false },
-    { id: 102, title: '给王总回电话', desc: '确认验收时间。', status: 'nextStep', time: '今天 15:00', project: '官网重构', date: '', priority: 'high', completed: false }
-  ]);
+  // --- 修改任务池初始化 ---
+  const [globalTasks, setGlobalTasks] = useState(() => {
+    const savedTasks = localStorage.getItem('gtd_tasks');
+    return savedTasks ? JSON.parse(savedTasks) : [
+      { id: 101, title: '欢迎使用 GTD', desc: '这是一个示例任务', status: 'inbox', priority: 'medium', completed: false }
+    ];
+  });
 
-  // 项目池 (从第二页提拔上来)
-  const [globalProjects, setGlobalProjects] = useState([
-    { id: 1, name: '官网重构', status: '进行中', desc: '进度：已完成原型设计...' },
-    { id: 2, name: 'Q3营销计划', status: '缺资源', desc: '进度：等待财务预算审批...' }
-  ]);
+  // --- 修改项目池初始化 ---
+  const [globalProjects, setGlobalProjects] = useState(() => {
+    const savedProjects = localStorage.getItem('gtd_projects');
+    return savedProjects ? JSON.parse(savedProjects) : [
+      { id: 1, name: '我的第一个项目', status: '进行中', stages: [], logs: [] }
+    ];
+  });
 
+  // --- 新增：自动保存监视器 ---
+  // 当任务变动时，自动写入本地存储
+  useEffect(() => {
+    localStorage.setItem('gtd_tasks', JSON.stringify(globalTasks));
+  }, [globalTasks]);
+
+  // 当项目变动时，自动写入本地存储
+  useEffect(() => {
+    localStorage.setItem('gtd_projects', JSON.stringify(globalProjects));
+  }, [globalProjects]);
+
+  // ... 剩下的 handleAddGlobalTask 等函数保持不变 ...
+  
   const handleAddGlobalTask = (newTask) => {
     setGlobalTasks([{ ...newTask, id: Date.now() }, ...globalTasks]);
   };
@@ -62,7 +78,6 @@ export default function App() {
     setGlobalTasks(prev => [...aiParsedTasks, ...prev]);
     setIsAiModalOpen(false);
     setAiParsedTasks([]);
-    alert(`成功导入 ${aiParsedTasks.length} 条任务！`);
   };
 
   // ==================== 3. 手动表单提交逻辑 ====================
@@ -75,19 +90,20 @@ export default function App() {
     const projectName = event.target.projectName.value;
     const startTime = event.target.startTime.value; 
 
-    if (!title.trim()) { alert("请输入任务标题"); return; }
+    
 
-    // 【关键修复】：如果用户选了“2. 项目”
     if (gtdOptionValue === "2") {
       const newProject = {
         name: title,
         status: '新计划',
-        desc: desc || '暂无描述'
+        desc: desc || '暂无描述',
+        purpose: '',
+        stages: [],
+        logs: []
       };
       handleAddGlobalProject(newProject);
-      alert('已成功作为“新项目”添加到右侧项目栏！');
       event.target.reset();
-      return; // 直接 return，不把它当作普通任务塞进看板
+      return; 
     }
 
     let mappedStatus = 'inbox'; 
@@ -104,7 +120,6 @@ export default function App() {
     };
 
     handleAddGlobalTask(newTask);
-    alert('任务保存成功！');
     event.target.reset();
   };
 
@@ -194,7 +209,12 @@ export default function App() {
 
       {/* 【关键】把 globalProjects 也传给第二页 */}
       <GtdPanel globalTasks={globalTasks} setGlobalTasks={setGlobalTasks} globalProjects={globalProjects} setGlobalProjects={setGlobalProjects} /> 
-      <SchedulePanel globalTasks={globalTasks} />
+      {/* 赋予 SchedulePanel 读取和修改全局任务、读取项目池的权限 */}
+      <SchedulePanel 
+        globalTasks={globalTasks} 
+        setGlobalTasks={setGlobalTasks} 
+        globalProjects={globalProjects} 
+      />
 
       {/* ==================== 弹窗区域 ==================== */}
       {isAiModalOpen && (

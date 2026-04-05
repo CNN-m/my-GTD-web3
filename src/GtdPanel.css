@@ -204,3 +204,401 @@
   font-size: 10px; padding: 2px 6px; border-radius: 4px; cursor: pointer;
 }
 .task-delete-btn:hover { background: #ffccc7; }
+
+
+/* ==================== 阶段三：项目详情画中画弹窗 (时间轴重构版) ==================== */
+
+.proj-detail-modal {
+  background: #ffffff; width: 800px; max-width: 95vw; max-height: 85vh;
+  border-radius: 12px; display: flex; flex-direction: column;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.15); overflow: hidden;
+}
+
+.proj-detail-header { padding: 20px 30px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; }
+.proj-detail-header h2 { margin: 0; font-size: 20px; color: #111; display: flex; align-items: center; gap: 12px; }
+
+/* 弹窗核心区域：自上而下的流式布局 */
+.proj-detail-body { display: flex; flex-direction: column; flex: 1; padding: 0; overflow-y: auto; }
+.proj-detail-body::-webkit-scrollbar { width: 6px; }
+.proj-detail-body::-webkit-scrollbar-thumb { background: #d0d4db; border-radius: 3px; }
+
+/* 目的区 */
+.proj-purpose-area { padding: 20px 30px; background: #fafafa; border-bottom: 1px solid #eee; font-size: 14px; color: #333; }
+.proj-label { color: #888; font-weight: bold; margin-right: 8px; }
+
+/* 板块通用 */
+.proj-section { padding: 20px 30px; }
+.section-title { font-size: 14px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 20px 0; border-bottom: 1px solid #eee; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;}
+
+/* --- 核心：总体阶段与拆解时间轴 --- */
+.proj-timeline { display: flex; flex-direction: column; }
+
+.proj-timeline-row {
+  display: flex;
+  margin-bottom: 0; /* 依靠内部 padding 撑开 */
+  position: relative;
+}
+
+/* 左侧：占 18% 宽度，文字居左，带垂直连线 */
+.proj-timeline-left {
+  flex: 0 0 18%; /* 稍微大于 10% 确保中文不折行太严重 */
+  border-right: 2px solid #eee; /* 时间轴竖线 */
+  padding-right: 15px;
+  padding-top: 5px;
+  padding-bottom: 30px;
+  position: relative;
+  text-align: right; /* 阶段文字靠右紧贴竖线 */
+}
+
+/* 时间轴小圆点 */
+.timeline-dot {
+  position: absolute;
+  right: -5px; /* 压在竖线上 */
+  top: 10px;
+  width: 8px;
+  height: 8px;
+  background: #bbb;
+  border-radius: 50%;
+}
+
+.stage-name { font-size: 14px; font-weight: bold; color: #333; }
+
+
+/* ==================== 阶段三：项目详情画中画弹窗 (时间轴重构版) ==================== */
+/* ====================================================
+   核心：总体阶段与拆解时间轴 (终极防坍塌装甲版)
+   ==================================================== */
+.proj-timeline { 
+  display: block; 
+  width: 100%; 
+}
+
+.proj-timeline-row {
+  display: flex !important;
+  flex-direction: row !important;
+  width: 100% !important;
+  margin-bottom: 0;
+  position: relative;
+}
+
+/* 左侧：绝对固定 120px 宽度，绝不伸缩 */
+.proj-timeline-left {
+  flex: 0 0 120px !important;
+  width: 120px !important;
+  border-right: 2px solid #eee;
+  padding-right: 15px;
+  padding-top: 5px;
+  padding-bottom: 30px;
+  position: relative;
+  text-align: right;
+}
+
+.timeline-dot {
+  position: absolute;
+  right: -5px;
+  top: 10px;
+  width: 8px;
+  height: 8px;
+  background: #bbb;
+  border-radius: 50%;
+}
+
+.stage-name { font-size: 16px; font-weight: bold; color: #340e0e; }
+
+/* 右侧：严格霸占剩余的所有空间 (100% - 120px) */
+.proj-timeline-right {
+  flex: 1 1 auto !important;
+  width: calc(100% - 120px) !important;
+  padding-left: 20px;
+  padding-bottom: 30px;
+  text-align: left !important;
+}
+
+.proj-subtask-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px;
+  width: 100% !important;
+}
+
+.proj-subtask-item {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+  gap: 10px;
+  width: 100% !important;
+}
+
+/* 强制锁定复选框大小，绝不被压扁 */
+.proj-subtask-item input[type="checkbox"] {
+  margin: 0 !important;
+  margin-top: 4px !important;
+  flex: 0 0 1px !important; 
+  width: 16px !important;
+  height: 16px !important;
+  cursor: pointer;
+}
+
+/* 拯救文字排版的终极魔法 */
+.proj-subtask-item .editable-text {
+  flex: 1 1 auto !important;
+  min-width: 0 !important; 
+  width: 100% !important;
+  text-align: left !important;
+  line-height: 1.4 !important;
+  white-space: normal !important; /* 强制横向正常换行 */
+  word-break: break-word !important; 
+  color: #151313;
+}
+
+.proj-subtask-item.completed { opacity: 0.5; }
+.proj-subtask-item.completed .editable-text { text-decoration: line-through; color: #999; }
+
+/* 按钮也强制靠左 */
+.add-btn-text {
+  display: block !important;
+  text-align: left !important;
+  background: none; border: none; font-size: 12px; color: #1890ff; 
+  cursor: pointer; padding: 0; margin-top: 5px; width: fit-content;
+}
+.add-btn-text:hover { text-decoration: underline; }
+
+/* ====================================================
+   终极 UI 精调：项目目的、圆角按钮、左图右文日志区
+   ==================================================== */
+
+/* 1. 项目目的：标题与内容分行，字号变大，绝对靠左 */
+.proj-purpose-area {
+  display: flex !important;
+  flex-direction: column !important; /* 强制上下分行 */
+  align-items: flex-start !important; /* 强制靠左对齐 */
+  padding: 25px 30px !important;
+  text-align: left !important;
+  gap: 12px !important; /* 标题和内容之间的间距 */
+}
+
+.proj-label {
+  font-size: 15px !important; /* 标题字号变大 */
+  color: #666 !important;
+  margin: 0 !important;
+  font-weight: bold !important;
+}
+
+.proj-purpose-area .editable-text {
+  font-size: 16px !important; /* 内容字号变大 */
+  color: #222 !important;
+  line-height: 1.6 !important;
+  width: 100% !important;
+  text-align: left !important; /* 抵抗全局居中 */
+}
+
+/* 2. 添加阶段 / 添加记录 小按钮：字号更小，边缘更圆润 */
+.add-btn-small {
+  border-radius: 15px !important; /* 大圆角，不那么方了 */
+  padding: 3px 12px !important;
+  font-size: 11px !important; /* 字号调小 */
+  color: #888 !important;
+  border: 1px solid #ddd !important;
+  background: transparent !important;
+}
+
+.add-btn-small:hover {
+  background: #f5f5f5 !important;
+  color: #333 !important;
+  border-color: #ccc !important;
+}
+
+/* 3. 进度记录与反思：左侧方形照片，右侧文字靠左排布 */
+.proj-log-item {
+  display: flex !important;
+  flex-direction: row !important; /* 强制左图右文横向排布 */
+  align-items: flex-start !important; /* 顶部对齐 */
+  justify-content: flex-start !important; /* 容器内元素全部靠左 */
+  gap: 15px !important;
+  padding: 15px !important;
+  border: 1px solid #eee !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  width: 100% !important;
+}
+
+.proj-log-photo {
+  flex: 0 0 60px !important; /* 锁定正方形，绝不拉伸或挤压 */
+  width: 60px !important;
+  height: 60px !important;
+  background: #f4f6f8 !important;
+  border: 1px dashed #d9d9d9 !important;
+  border-radius: 6px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 11px !important;
+  color: #aaa !important;
+  text-align: center !important;
+  line-height: 1.3 !important;
+}
+
+.proj-log-content {
+  display: flex !important;
+  flex-direction: column !important; /* 标题和内容上下排布 */
+  align-items: flex-start !important; /* 🚨最关键：强制内部文字靠左对齐！ */
+  justify-content: flex-start !important;
+  gap: 6px !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+
+.proj-log-title {
+  font-size: 13px !important;
+  font-weight: bold !important; /* 标题加粗 */
+  color: #111 !important;
+  text-align: left !important; /* 文字居左 */
+  width: 100% !important;
+}
+
+.proj-log-text {
+  font-size: 12px !important; /* 字体变小 */
+  color: #888 !important; /* 字体变灰 */
+  line-height: 1.6 !important;
+  text-align: left !important; /* 文字居左 */
+  white-space: normal !important;
+  word-break: break-word !important;
+  width: 100% !important;
+}
+
+
+/* ==================== 阶段四：从 GTD 导入弹窗 (高级排版) ==================== */
+
+.import-modal-content {
+  background: #ffffff; 
+  width: 650px; 
+  max-width: 90vw; 
+  height: 480px;
+  border-radius: 16px; /* 更圆润的外框 */
+  display: flex; 
+  flex-direction: column;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.1); 
+  overflow: hidden;
+}
+
+.import-modal-header { 
+  padding: 20px 25px; 
+  border-bottom: 1px solid #f0f0f0; 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+}
+
+.import-modal-header h2 { 
+  margin: 0; 
+  font-size: 16px; 
+  color: #333; 
+}
+
+.import-modal-header h2 span {
+  color: #1890ff;
+}
+
+/* 核心：左右分栏结构 */
+.import-modal-body { 
+  display: flex; 
+  flex: 1; 
+  overflow: hidden; 
+}
+
+/* 左侧：竖向分类导航 */
+.import-sidebar { 
+  width: 160px; 
+  background: #fafafa; 
+  border-right: 1px solid #eee; 
+  display: flex; 
+  flex-direction: column; 
+  padding: 15px 10px; 
+  gap: 8px; 
+}
+
+.import-tab { 
+  background: transparent; 
+  border: none; 
+  text-align: left; 
+  padding: 12px 15px; 
+  border-radius: 8px; 
+  font-size: 13px; 
+  color: #666; 
+  cursor: pointer; 
+  transition: all 0.2s; 
+}
+
+.import-tab:hover { background: #f0f0f0; }
+.import-tab.active { background: #e6f7ff; color: #1890ff; font-weight: bold; }
+
+/* 右侧：任务卡片列表 */
+.import-content { 
+  flex: 1; 
+  padding: 20px 25px; 
+  overflow-y: auto; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 12px; 
+  background: #fff;
+}
+
+.import-content::-webkit-scrollbar { width: 6px; }
+.import-content::-webkit-scrollbar-thumb { background: #d0d4db; border-radius: 3px; }
+
+/* 任务小卡片 */
+.import-task-item { 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  padding: 12px 16px; 
+  background: #fff; 
+  border: 1px solid #eee; 
+  border-radius: 12px; /* 内部卡片更圆润 */
+  transition: box-shadow 0.2s, border-color 0.2s; 
+}
+
+.import-task-item:hover { 
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
+  border-color: #d9d9d9;
+}
+
+.import-task-title { 
+  font-size: 13px; /* 字体改小 */
+  color: #333; 
+}
+
+/* 导入按钮：圆角、淡蓝底色 */
+.import-btn { 
+  background: #e6f7ff; 
+  border: none; 
+  color: #d3e4f3; 
+  padding: 6px 16px; 
+  border-radius: 14px; /* 更圆的按钮 */
+  font-size: 12px; /* 字体改小 */
+  cursor: pointer; 
+  transition: background 0.2s; 
+}
+
+.import-btn:hover { background: #bae0ff; }
+
+/* 项目标题分组 */
+.import-project-group { margin-bottom: 20px; }
+.import-project-name { font-size: 12px; color: #999; margin: 0 0 10px 5px; font-weight: normal; }
+
+.empty-text { font-size: 13px; color: #bbb; text-align: center; margin-top: 40px; }
+
+/* 日历小圆点右侧的任务数字 */
+.task-dot-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.task-dot-count {
+  font-size: 10px;
+  color: #888;
+}
