@@ -4,12 +4,13 @@ import GtdPanel from './GtdPanel';
 import SchedulePanel from './SchedulePanel'; 
 
 export default function App() {
-  // ============== 核心修改：这里换成你的Worker地址 ==============
-  const API_BASE_URL = "https://gtd-date-api.2180295860.workers.dev"; 
-  // ============================================================
+  const API_BASE_URL = "https://gtd-date-api.2180295860.workers.dev";
 
-  // 登录状态（必须有，才能区分用户）
-  const [userId, setUserId] = useState(null);
+  // =============== 登录状态（会自动记住） ===============
+  const [userId, setUserId] = useState(() => {
+    return localStorage.getItem("userId") || null;
+  });
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
@@ -17,7 +18,22 @@ export default function App() {
   const [globalProjects, setGlobalProjects] = useState([]);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
-  // ==================== 登录功能 ====================
+  // =============== 登录后自动保存到本地，永久记住 ===============
+  useEffect(() => {
+    if (userId) {
+      localStorage.setItem("userId", userId);
+    }
+  }, [userId]);
+
+  // =============== 退出登录 ===============
+  const handleLogout = () => {
+    setUserId(null);
+    localStorage.removeItem("userId");
+    setGlobalTasks([]);
+    alert("已退出登录");
+  };
+
+  // =============== 登录 ===============
   const handleLogin = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/login`, {
@@ -37,7 +53,7 @@ export default function App() {
     }
   };
 
-  // 注册功能
+  // =============== 注册 ===============
   const handleRegister = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/register`, {
@@ -52,9 +68,10 @@ export default function App() {
     }
   };
 
-  // ==================== 从云端获取任务 ====================
+  // =============== 加载用户的云端任务 ===============
   useEffect(() => {
-    if (!userId) return; // 未登录不加载
+    if (!userId) return;
+
     const fetchTasks = async () => {
       try {
         const res = await fetch(`${API_BASE_URL}/get-tasks`, {
@@ -64,17 +81,25 @@ export default function App() {
         });
         const data = await res.json();
         if (data.ok) {
-          setGlobalTasks(data.tasks);
+          const tasks = (data.tasks || []).map(t => {
+            try {
+              return JSON.parse(t.content);
+            } catch {
+              return t.content;
+            }
+          });
+          setGlobalTasks(tasks);
           setIsDataLoaded(true);
         }
       } catch (error) {
-        console.error("获取数据失败:", error);
+        console.error("获取数据失败", error);
       }
     };
+
     fetchTasks();
   }, [userId]);
 
-  // ==================== 保存任务到云端 ====================
+  // =============== 保存任务到云端 ===============
   const saveTaskToCloud = async (task) => {
     if (!userId) return;
     try {
@@ -91,18 +116,17 @@ export default function App() {
     }
   };
 
-  // 新增任务时自动保存到云端
   const handleAddGlobalTask = (newTask) => {
     const task = { ...newTask, id: Date.now() };
-    setGlobalTasks([task, ...globalTasks]);
-    saveTaskToCloud(task); // 自动同步云端
+    setGlobalTasks(prev => [task, ...prev]);
+    saveTaskToCloud(task);
   };
 
   const handleAddGlobalProject = (newProject) => {
-    setGlobalProjects([{ ...newProject, id: Date.now() }, ...globalProjects]);
+    setGlobalProjects(prev => [{ ...newProject, id: Date.now() }, ...prev]);
   };
 
-  // ==================== AI 功能（保留不变） ====================
+  // ==================== AI 部分不变 ====================
   const [chatHistory, setChatHistory] = useState([]);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [aiParsedTasks, setAiParsedTasks] = useState([]); 
@@ -141,7 +165,6 @@ export default function App() {
     setAiParsedTasks([]);
   };
 
-  // ==================== 手动表单 ====================
   const handleManualSubmit = (event) => {
     event.preventDefault(); 
     const title = event.target.taskTitle.value;
@@ -182,7 +205,6 @@ export default function App() {
     event.target.reset();
   };
 
-  // ==================== 状态回顾 ====================
   const [reviewModal, setReviewModal] = useState({ isOpen: false, title: '', statusKey: '' });
   const counts = {
     inbox: globalTasks.filter(t => t.status === 'inbox' && !t.completed).length,
@@ -193,33 +215,62 @@ export default function App() {
   const openReview = (title, statusKey) => setReviewModal({ isOpen: true, title, statusKey });
   const closeReview = () => setReviewModal({ isOpen: false, title: '', statusKey: '' });
 
+  // =============== 未登录 → 只显示登录页面 ===============
+  if (!userId) {
+    return (
+      <div style={{
+        maxWidth: '400px',
+        margin: '100px auto',
+        padding: '30px',
+        border: '1px solid #ddd',
+        borderRadius: '12px',
+        background: '#fff'
+      }}>
+        <h2 style={{ textAlign: 'center', marginBottom: '30px' }}>GTD 工作流 · 登录</h2>
+
+        <div style={{ marginBottom: '15px' }}>
+          <input
+            placeholder="用户名"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            style={{ width: '100%', padding: '12px', fontSize: '16px' }}
+          />
+        </div>
+
+        <div style={{ marginBottom: '15px' }}>
+          <input
+            type="password"
+            placeholder="密码"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={{ width: '100%', padding: '12px', fontSize: '16px' }}
+          />
+        </div>
+
+        <button 
+          onClick={handleLogin}
+          style={{ width: '100%', padding: '12px', fontSize: '16px', marginBottom: '10px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: '6px' }}
+        >
+          登录
+        </button>
+
+        <button 
+          onClick={handleRegister}
+          style={{ width: '100%', padding: '12px', fontSize: '16px', background: '#f5f5f5', border: 'none', borderRadius: '6px' }}
+        >
+          注册账号
+        </button>
+      </div>
+    );
+  }
+
+  // =============== 已登录 → 显示完整 GTD 系统 ===============
   return (
     <div className="app-root">
       <header className="page-header">
         <h1>GTD工作流</h1>
-        {/* 登录栏（新增） */}
-        <div style={{ marginTop: '10px' }}>
-          {!userId ? (
-            <>
-              <input 
-                placeholder="账号" 
-                value={username} 
-                onChange={(e) => setUsername(e.target.value)} 
-                style={{ padding: '5px', marginRight: '5px' }}
-              />
-              <input 
-                type="password"
-                placeholder="密码" 
-                value={password} 
-                onChange={(e) => setPassword(e.target.value)} 
-                style={{ padding: '5px', marginRight: '5px' }}
-              />
-              <button onClick={handleLogin} style={{ padding: '5px 10px' }}>登录</button>
-              <button onClick={handleRegister} style={{ padding: '5px 10px', marginLeft: '5px' }}>注册</button>
-            </>
-          ) : (
-            <h3>欢迎你，{username} ✅</h3>
-          )}
+        <div style={{ marginTop: '8px' }}>
+          <button onClick={handleLogout} style={{ padding: '6px 12px', fontSize: '14px' }}>退出登录</button>
         </div>
       </header>
 
