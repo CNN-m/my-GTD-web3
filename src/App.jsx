@@ -3,67 +3,106 @@ import './App.css';
 import GtdPanel from './GtdPanel'; 
 import SchedulePanel from './SchedulePanel'; 
 
-
-
-// ... 其他 import ...
-
 export default function App() {
-  // 【关键配置】在这里填入你刚才查到的 IP 地址
-  const API_BASE_URL = "http://10.19.163.112:3001"; // 👈 把这里的 192.168.1.5 换成你自己的 IP
+  // ============== 核心修改：这里换成你的Worker地址 ==============
+  const API_BASE_URL = "https://gtd-date-api.2180295860.workers.dev"; 
+  // ============================================================
+
+  // 登录状态（必须有，才能区分用户）
+  const [userId, setUserId] = useState(null);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
 
   const [globalTasks, setGlobalTasks] = useState([]);
   const [globalProjects, setGlobalProjects] = useState([]);
-  const [isDataLoaded, setIsDataLoaded] = useState(false); // 防止初始化时覆盖数据
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
 
-  // ==================== 1. 初始化：从 SQLite 获取数据 ====================
+  // ==================== 登录功能 ====================
+  const handleLogin = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setUserId(data.user_id);
+        alert("登录成功！");
+      } else {
+        alert(data.msg);
+      }
+    } catch (e) {
+      alert("登录失败");
+    }
+  };
+
+  // 注册功能
+  const handleRegister = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json();
+      alert(data.msg);
+    } catch (e) {
+      alert("注册失败");
+    }
+  };
+
+  // ==================== 从云端获取任务 ====================
   useEffect(() => {
-    const fetchData = async () => {
+    if (!userId) return; // 未登录不加载
+    const fetchTasks = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/data`);
-        const result = await response.json();
-        setGlobalTasks(result.tasks || []);
-        setGlobalProjects(result.projects || []);
-        setIsDataLoaded(true); // 标记数据加载完成
+        const res = await fetch(`${API_BASE_URL}/get-tasks`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: userId }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          setGlobalTasks(data.tasks);
+          setIsDataLoaded(true);
+        }
       } catch (error) {
-        console.error("数据库连接失败:", error);
+        console.error("获取数据失败:", error);
       }
     };
-    fetchData();
-  }, []);
+    fetchTasks();
+  }, [userId]);
 
-  // ==================== 2. 持久化：当数据变动时存入 SQLite ====================
-  useEffect(() => {
-    // 只有当数据已经从后端加载完毕后，才允许向后端写数据，防止空数据覆盖掉数据库
-    if (isDataLoaded) {
-      const saveData = async () => {
-        try {
-          await fetch(`${API_BASE_URL}/api/save`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tasks: globalTasks, projects: globalProjects })
-          });
-        } catch (error) {
-          console.error("数据保存失败:", error);
-        }
-      };
-
-      // 简单防抖，防止频繁点击导致服务器压力大
-      const timer = setTimeout(saveData, 500);
-      return () => clearTimeout(timer);
+  // ==================== 保存任务到云端 ====================
+  const saveTaskToCloud = async (task) => {
+    if (!userId) return;
+    try {
+      await fetch(`${API_BASE_URL}/save-task`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: userId,
+          content: JSON.stringify(task),
+        }),
+      });
+    } catch (e) {
+      console.error("保存失败");
     }
-  }, [globalTasks, globalProjects, isDataLoaded]);
+  };
 
-  // ... handleAddGlobalTask 等其他逻辑 ...
-  
+  // 新增任务时自动保存到云端
   const handleAddGlobalTask = (newTask) => {
-    setGlobalTasks([{ ...newTask, id: Date.now() }, ...globalTasks]);
+    const task = { ...newTask, id: Date.now() };
+    setGlobalTasks([task, ...globalTasks]);
+    saveTaskToCloud(task); // 自动同步云端
   };
 
   const handleAddGlobalProject = (newProject) => {
     setGlobalProjects([{ ...newProject, id: Date.now() }, ...globalProjects]);
   };
 
-  // ==================== 2. AI 批量解析 ====================
+  // ==================== AI 功能（保留不变） ====================
   const [chatHistory, setChatHistory] = useState([]);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [aiParsedTasks, setAiParsedTasks] = useState([]); 
@@ -97,11 +136,12 @@ export default function App() {
 
   const handleApproveAiTasks = () => {
     setGlobalTasks(prev => [...aiParsedTasks, ...prev]);
+    aiParsedTasks.forEach(task => saveTaskToCloud(task));
     setIsAiModalOpen(false);
     setAiParsedTasks([]);
   };
 
-  // ==================== 3. 手动表单提交逻辑 ====================
+  // ==================== 手动表单 ====================
   const handleManualSubmit = (event) => {
     event.preventDefault(); 
     const title = event.target.taskTitle.value;
@@ -110,8 +150,6 @@ export default function App() {
     const priority = event.target.taskPriority.value; 
     const projectName = event.target.projectName.value;
     const startTime = event.target.startTime.value; 
-
-    
 
     if (gtdOptionValue === "2") {
       const newProject = {
@@ -144,7 +182,7 @@ export default function App() {
     event.target.reset();
   };
 
-  // ==================== 4. 状态回顾 ====================
+  // ==================== 状态回顾 ====================
   const [reviewModal, setReviewModal] = useState({ isOpen: false, title: '', statusKey: '' });
   const counts = {
     inbox: globalTasks.filter(t => t.status === 'inbox' && !t.completed).length,
@@ -157,10 +195,35 @@ export default function App() {
 
   return (
     <div className="app-root">
-      <header className="page-header"><h1>GTD工作流</h1></header>
+      <header className="page-header">
+        <h1>GTD工作流</h1>
+        {/* 登录栏（新增） */}
+        <div style={{ marginTop: '10px' }}>
+          {!userId ? (
+            <>
+              <input 
+                placeholder="账号" 
+                value={username} 
+                onChange={(e) => setUsername(e.target.value)} 
+                style={{ padding: '5px', marginRight: '5px' }}
+              />
+              <input 
+                type="password"
+                placeholder="密码" 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+                style={{ padding: '5px', marginRight: '5px' }}
+              />
+              <button onClick={handleLogin} style={{ padding: '5px 10px' }}>登录</button>
+              <button onClick={handleRegister} style={{ padding: '5px 10px', marginLeft: '5px' }}>注册</button>
+            </>
+          ) : (
+            <h3>欢迎你，{username} ✅</h3>
+          )}
+        </div>
+      </header>
 
       <main className="main-container">
-        {/* 左侧栏：自然语言AI */}
         <section className="column left-col">
           <div className="card">
             <div className="card-title">自然语言输入</div>
@@ -178,7 +241,6 @@ export default function App() {
           </div>
         </section>
 
-        {/* 中间栏：手动添加 */}
         <section className="column center-col">
           <div className="card">
             <div className="card-title">手动添加收件箱</div>
@@ -209,7 +271,6 @@ export default function App() {
           </div>
         </section>
 
-        {/* 右侧栏：回顾 */}
         <section className="column right-col">
           <div className="card">
             <div className="card-title">状态回顾</div>
@@ -217,7 +278,7 @@ export default function App() {
               <div className="review-item item-inbox" onClick={() => openReview('收件箱待处理', 'inbox')}><span className="review-title">收件箱待成型</span><span className="review-count">{counts.inbox}</span></div>
               <div className="review-item item-action" onClick={() => openReview('下一步行动', 'nextStep')}><span className="review-title">下一步行动</span><span className="review-count">{counts.nextStep}</span></div>
               <div className="review-item item-waiting" onClick={() => openReview('等待中', 'waiting')}><span className="review-title">等待中</span><span className="review-count">{counts.waiting}</span></div>
-              <div className="review-item item-trash" onClick={() => openReview('垃圾箱/备忘', 'trash')}><span className="review-title">垃圾箱/备忘</span><span className="review-count">{counts.trash}</span></div>
+              <div className="review-item item-trash" onClick={() => openReview('垃圾箱/备忘', 'trash')}><span className="review-count">{counts.trash}</span></div>
             </div>
             <div className="card-title" style={{ marginTop: '10px' }}>本周建议（AI智能分析）</div>
             <ul className="suggestion-list">
@@ -228,16 +289,13 @@ export default function App() {
         </section>
       </main>
 
-      {/* 【关键】把 globalProjects 也传给第二页 */}
       <GtdPanel globalTasks={globalTasks} setGlobalTasks={setGlobalTasks} globalProjects={globalProjects} setGlobalProjects={setGlobalProjects} /> 
-      {/* 赋予 SchedulePanel 读取和修改全局任务、读取项目池的权限 */}
       <SchedulePanel 
         globalTasks={globalTasks} 
         setGlobalTasks={setGlobalTasks} 
         globalProjects={globalProjects} 
       />
 
-      {/* ==================== 弹窗区域 ==================== */}
       {isAiModalOpen && (
         <div className="modal-overlay">
           <div className="modal-content ai-modal" style={{ width: '800px', maxWidth: '90vw' }}>
