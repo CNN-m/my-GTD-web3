@@ -138,3 +138,48 @@
 .import-project-name { font-size: 13px; color: #999; margin: 0 0 10px 5px; font-weight: bold; }
 
 .empty-text { font-size: 13px; color: #bbb; text-align: center; margin-top: 40px; }
+
+
+
+@media (max-width: 768px) {
+  /* 1. 日程表左右变上下 */
+  .schedule-container {
+    flex-direction: column !important;
+    height: auto !important;
+  }
+
+  .schedule-left, .schedule-right {
+    width: 100% !important;
+    flex: none !important;
+    height: auto !important;
+  }
+
+  /* 2. 核心：导入弹窗的“左导航右列表”在手机上变“上导航下列表” */
+  .import-modal-content {
+    width: 95vw !important;
+    height: 85vh !important;
+  }
+
+  .import-modal-body {
+    flex-direction: column !important; /* 关键：左侧菜单翻到上面去 */
+  }
+
+  .import-sidebar {
+    width: 100% !important;
+    flex-direction: row !important; /* 菜单横向排布 */
+    overflow-x: auto; /* 菜单多出屏幕可以横向滑动 */
+    padding: 5px !important;
+    border-right: none !important;
+    border-bottom: 1px solid #eee;
+  }
+
+  .import-tab {
+    white-space: nowrap; /* 文字不换行 */
+    padding: 8px 12px !important;
+    font-size: 12px !important;
+  }
+
+  .import-content {
+    padding: 15px !important;
+  }
+}

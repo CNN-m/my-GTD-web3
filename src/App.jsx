@@ -3,36 +3,57 @@ import './App.css';
 import GtdPanel from './GtdPanel'; 
 import SchedulePanel from './SchedulePanel'; 
 
+
+
+// ... 其他 import ...
+
 export default function App() {
-  
-  // --- 修改任务池初始化 ---
-  const [globalTasks, setGlobalTasks] = useState(() => {
-    const savedTasks = localStorage.getItem('gtd_tasks');
-    return savedTasks ? JSON.parse(savedTasks) : [
-      { id: 101, title: '欢迎使用 GTD', desc: '这是一个示例任务', status: 'inbox', priority: 'medium', completed: false }
-    ];
-  });
+  // 【关键配置】在这里填入你刚才查到的 IP 地址
+  const API_BASE_URL = "http://10.19.163.112:3001"; // 👈 把这里的 192.168.1.5 换成你自己的 IP
 
-  // --- 修改项目池初始化 ---
-  const [globalProjects, setGlobalProjects] = useState(() => {
-    const savedProjects = localStorage.getItem('gtd_projects');
-    return savedProjects ? JSON.parse(savedProjects) : [
-      { id: 1, name: '我的第一个项目', status: '进行中', stages: [], logs: [] }
-    ];
-  });
+  const [globalTasks, setGlobalTasks] = useState([]);
+  const [globalProjects, setGlobalProjects] = useState([]);
+  const [isDataLoaded, setIsDataLoaded] = useState(false); // 防止初始化时覆盖数据
 
-  // --- 新增：自动保存监视器 ---
-  // 当任务变动时，自动写入本地存储
+  // ==================== 1. 初始化：从 SQLite 获取数据 ====================
   useEffect(() => {
-    localStorage.setItem('gtd_tasks', JSON.stringify(globalTasks));
-  }, [globalTasks]);
+    const fetchData = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/data`);
+        const result = await response.json();
+        setGlobalTasks(result.tasks || []);
+        setGlobalProjects(result.projects || []);
+        setIsDataLoaded(true); // 标记数据加载完成
+      } catch (error) {
+        console.error("数据库连接失败:", error);
+      }
+    };
+    fetchData();
+  }, []);
 
-  // 当项目变动时，自动写入本地存储
+  // ==================== 2. 持久化：当数据变动时存入 SQLite ====================
   useEffect(() => {
-    localStorage.setItem('gtd_projects', JSON.stringify(globalProjects));
-  }, [globalProjects]);
+    // 只有当数据已经从后端加载完毕后，才允许向后端写数据，防止空数据覆盖掉数据库
+    if (isDataLoaded) {
+      const saveData = async () => {
+        try {
+          await fetch(`${API_BASE_URL}/api/save`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tasks: globalTasks, projects: globalProjects })
+          });
+        } catch (error) {
+          console.error("数据保存失败:", error);
+        }
+      };
 
-  // ... 剩下的 handleAddGlobalTask 等函数保持不变 ...
+      // 简单防抖，防止频繁点击导致服务器压力大
+      const timer = setTimeout(saveData, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [globalTasks, globalProjects, isDataLoaded]);
+
+  // ... handleAddGlobalTask 等其他逻辑 ...
   
   const handleAddGlobalTask = (newTask) => {
     setGlobalTasks([{ ...newTask, id: Date.now() }, ...globalTasks]);

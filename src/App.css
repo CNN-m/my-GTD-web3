@@ -149,3 +149,28 @@ textarea.notes { height: 80px; resize: none; }
 .modal-task-card h4 { margin: 0 0 5px 0; font-size: 14px; color: #333; }
 .modal-task-card p { font-size: 12px; color: #777; margin: 0 0 8px 0; }
 .modal-tag { font-size: 10px; background: #e6f7ff; color: #1890ff; padding: 2px 6px; border-radius: 4px;}
+
+
+/* ================= 手机端自适应 (屏幕小于768px) ================= */
+@media (max-width: 768px) {
+  .main-container {
+    flex-direction: column !important; /* 左右变上下 */
+    height: auto !important;
+    padding: 10px !important;
+  }
+
+  .column {
+    width: 100% !important; /* 每一栏占满全屏 */
+    margin-bottom: 20px;
+    min-width: unset !important;
+  }
+
+  .card {
+    padding: 15px !important;
+  }
+
+  /* 隐藏一些手机端太占地方的元素 */
+  .page-header h1 {
+    font-size: 20px;
+  }
+}
