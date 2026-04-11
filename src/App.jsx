@@ -6,34 +6,39 @@ import SchedulePanel from './SchedulePanel';
 export default function App() {
   const API_BASE_URL = "https://gtd-date-api.2180295860.workers.dev";
 
-  // =============== 登录状态（会自动记住） ===============
+  // =============== 【核心修复】登录状态：从 localStorage 完整恢复 ===============
   const [userId, setUserId] = useState(() => {
     return localStorage.getItem("userId") || null;
   });
-
-  const [username, setUsername] = useState("");
+  const [username, setUsername] = useState(() => {
+    return localStorage.getItem("username") || "";
+  });
   const [password, setPassword] = useState("");
 
   const [globalTasks, setGlobalTasks] = useState([]);
   const [globalProjects, setGlobalProjects] = useState([]);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
-  // =============== 登录后自动保存到本地，永久记住 ===============
+  // =============== 【核心修复】登录状态变化时，同步到 localStorage ===============
   useEffect(() => {
-    if (userId) {
+    if (userId && username) {
       localStorage.setItem("userId", userId);
+      localStorage.setItem("username", username);
     }
-  }, [userId]);
+  }, [userId, username]);
 
   // =============== 退出登录 ===============
   const handleLogout = () => {
     setUserId(null);
+    setUsername("");
     localStorage.removeItem("userId");
+    localStorage.removeItem("username");
     setGlobalTasks([]);
+    setIsDataLoaded(false);
     alert("已退出登录");
   };
 
-  // =============== 登录 ===============
+  // =============== 【核心修复】登录逻辑：登录成功后存储完整信息 ===============
   const handleLogin = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/login`, {
@@ -44,12 +49,14 @@ export default function App() {
       const data = await res.json();
       if (data.ok) {
         setUserId(data.user_id);
+        setUsername(data.username); // 登录成功后，保存用户名到状态
         alert("登录成功！");
       } else {
         alert(data.msg);
       }
     } catch (e) {
-      alert("登录失败");
+      console.error("登录失败", e);
+      alert("登录失败，请检查网络");
     }
   };
 
@@ -64,11 +71,12 @@ export default function App() {
       const data = await res.json();
       alert(data.msg);
     } catch (e) {
-      alert("注册失败");
+      console.error("注册失败", e);
+      alert("注册失败，请检查网络");
     }
   };
 
-  // =============== 加载用户的云端任务 ===============
+  // =============== 【核心修复】加载用户的云端任务：优化触发逻辑 ===============
   useEffect(() => {
     if (!userId) return;
 
@@ -81,10 +89,12 @@ export default function App() {
         });
         const data = await res.json();
         if (data.ok) {
+          // 修复任务解析，确保兼容不同存储格式
           const tasks = (data.tasks || []).map(t => {
             try {
-              return JSON.parse(t.content);
-            } catch {
+              return typeof t.content === 'string' ? JSON.parse(t.content) : t.content;
+            } catch (err) {
+              console.error("任务解析失败", t.content, err);
               return t.content;
             }
           });
@@ -97,7 +107,7 @@ export default function App() {
     };
 
     fetchTasks();
-  }, [userId]);
+  }, [userId]); // 依赖 userId，只要 userId 变化就重新拉取
 
   // =============== 保存任务到云端 ===============
   const saveTaskToCloud = async (task) => {
@@ -112,7 +122,7 @@ export default function App() {
         }),
       });
     } catch (e) {
-      console.error("保存失败");
+      console.error("保存失败", e);
     }
   };
 
@@ -269,7 +279,8 @@ export default function App() {
     <div className="app-root">
       <header className="page-header">
         <h1>GTD工作流</h1>
-        <div style={{ marginTop: '8px' }}>
+        <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span>欢迎，{username} 👋</span>
           <button onClick={handleLogout} style={{ padding: '6px 12px', fontSize: '14px' }}>退出登录</button>
         </div>
       </header>
