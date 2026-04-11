@@ -6,28 +6,39 @@ export default function GtdPanel({ globalTasks, setGlobalTasks, globalProjects, 
   const [showCompletedProjects, setShowCompletedProjects] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
 
-  // 【同步云端】切换任务完成状态
+  // ====================== 修复 1：勾选任务，只更新，不新增 ======================
   const handleToggleTask = (id) => {
-    const updatedTasks = globalTasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t);
-    setGlobalTasks(updatedTasks);
-    const updatedTask = updatedTasks.find(t => t.id === id);
-    saveToCloud('task', updatedTask);
+    const updatedTask = globalTasks.find(t => t.id === id);
+    if (!updatedTask) return;
+
+    const newTasks = globalTasks.map(t => 
+      t.id === id ? { ...t, completed: !t.completed } : t
+    );
+    setGlobalTasks(newTasks);
+    saveToCloud('task', { ...updatedTask, completed: !updatedTask.completed });
   };
 
-  // 【同步云端】删除任务（移至垃圾箱）
   const handleDeleteTask = (id) => {
-    const updatedTasks = globalTasks.map(t => t.id === id ? { ...t, status: 'trash' } : t);
-    setGlobalTasks(updatedTasks);
-    const updatedTask = updatedTasks.find(t => t.id === id);
-    saveToCloud('task', updatedTask);
+    const updatedTask = globalTasks.find(t => t.id === id);
+    if (!updatedTask) return;
+
+    const newTasks = globalTasks.map(t => 
+      t.id === id ? { ...t, status: 'trash' } : t
+    );
+    setGlobalTasks(newTasks);
+    saveToCloud('task', { ...updatedTask, status: 'trash' });
   };
 
-  const handleProjectClick = (id) => setSelectedProject(globalProjects.find(p => p.id === id));
+  const handleProjectClick = (id) => {
+    setSelectedProject(globalProjects.find(p => p.id === id));
+  };
+
   const closeProjectModal = () => setSelectedProject(null);
 
-  // 【同步云端】更新项目信息（名称、阶段、子任务、日志等）
   const updateProjectContext = (updatedProject) => {
-    setGlobalProjects(globalProjects.map(p => p.id === updatedProject.id ? updatedProject : p));
+    setGlobalProjects(globalProjects.map(p => 
+      p.id === updatedProject.id ? updatedProject : p
+    ));
     setSelectedProject(updatedProject);
     saveToCloud('project', updatedProject);
   };
@@ -42,75 +53,147 @@ export default function GtdPanel({ globalTasks, setGlobalTasks, globalProjects, 
     
     if (!name || !name.trim()) return;
 
-    const parsedStages = stageStr.split('-').filter(s => s.trim() !== '').map((s, index) => ({ id: Date.now() + index, name: s.trim(), subtasks: [] }));
+    const parsedStages = stageStr.split('-').filter(s => s.trim() !== '').map((s, index) => ({ 
+      id: Date.now() + index, 
+      name: s.trim(), 
+      subtasks: [] 
+    }));
+
     const newProject = {
-      id: Date.now(), name, status: '新计划', desc: desc || '暂无描述', purpose: purpose || '',
-      stages: parsedStages.length > 0 ? parsedStages : [{ id: Date.now(), name: '初始阶段', subtasks: [] }], logs: []
+      id: Date.now(),
+      name,
+      status: '新计划',
+      desc: desc || '暂无描述',
+      purpose: purpose || '',
+      stages: parsedStages.length > 0 
+        ? parsedStages 
+        : [{ id: Date.now(), name: '初始阶段', subtasks: [] }],
+      logs: []
     };
 
-    const newProjects = [{ ...newProject }, ...globalProjects];
-    setGlobalProjects(newProjects); 
-    // 【同步云端】新增项目
+    setGlobalProjects([newProject, ...globalProjects]);
     saveToCloud('project', newProject);
-    e.currentTarget.reset(); 
-    setShowCompletedProjects(false); 
+    e.currentTarget.reset();
+    setShowCompletedProjects(false);
   };
 
-  // 【同步云端】标记项目完成
-  const handleCompleteProject = (e, id) => { 
-    e.stopPropagation(); 
-    const updatedProjects = globalProjects.map(p => p.id === id ? { ...p, status: '已完成' } : p);
-    setGlobalProjects(updatedProjects);
-    const updatedProject = updatedProjects.find(p => p.id === id);
-    saveToCloud('project', updatedProject);
+  const handleCompleteProject = (e, id) => {
+    e.stopPropagation();
+    const updatedProject = globalProjects.find(p => p.id === id);
+    if (!updatedProject) return;
+
+    setGlobalProjects(globalProjects.map(p => 
+      p.id === id ? { ...p, status: '已完成' } : p
+    ));
+    saveToCloud('project', { ...updatedProject, status: '已完成' });
   };
 
-  // 【同步云端】删除项目
-  const handleDeleteProject = (e, id) => { 
-    e.stopPropagation(); 
-    const filteredProjects = globalProjects.filter(p => p.id !== id);
-    setGlobalProjects(filteredProjects);
+  const handleDeleteProject = (e, id) => {
+    e.stopPropagation();
+    setGlobalProjects(globalProjects.filter(p => p.id !== id));
   };
 
   const editTextField = (field, oldValue) => {
     const newValue = prompt(`修改内容：`, oldValue);
-    if (newValue && newValue.trim() !== '') updateProjectContext({ ...selectedProject, [field]: newValue });
+    if (newValue && newValue.trim() !== '') {
+      updateProjectContext({ ...selectedProject, [field]: newValue });
+    }
   };
 
   const editStageName = (stageId, oldName) => {
     const newName = prompt("修改阶段名称：", oldName);
-    if (newName) updateProjectContext({ ...selectedProject, stages: selectedProject.stages.map(s => s.id === stageId ? { ...s, name: newName } : s) });
+    if (newName) {
+      updateProjectContext({
+        ...selectedProject,
+        stages: selectedProject.stages.map(s =>
+          s.id === stageId ? { ...s, name: newName } : s
+        )
+      });
+    }
   };
 
   const addStage = () => {
     const name = prompt("输入新阶段名称：");
-    if (name) updateProjectContext({ ...selectedProject, stages: [...selectedProject.stages, { id: Date.now(), name, subtasks: [] }] });
+    if (name) {
+      updateProjectContext({
+        ...selectedProject,
+        stages: [...selectedProject.stages, { id: Date.now(), name, subtasks: [] }]
+      });
+    }
   };
 
   const toggleSubtask = (stageId, subtaskId) => {
-    updateProjectContext({ ...selectedProject, stages: selectedProject.stages.map(s => s.id === stageId ? { ...s, subtasks: s.subtasks.map(t => t.id === subtaskId ? { ...t, completed: !t.completed } : t) } : s) });
+    updateProjectContext({
+      ...selectedProject,
+      stages: selectedProject.stages.map(s =>
+        s.id === stageId
+          ? {
+              ...s,
+              subtasks: s.subtasks.map(t =>
+                t.id === subtaskId ? { ...t, completed: !t.completed } : t
+              )
+            }
+          : s
+      )
+    });
   };
 
   const editSubtaskTitle = (stageId, subtaskId, oldTitle) => {
     const newTitle = prompt("修改任务名称：", oldTitle);
-    if (newTitle) updateProjectContext({ ...selectedProject, stages: selectedProject.stages.map(s => s.id === stageId ? { ...s, subtasks: s.subtasks.map(t => t.id === subtaskId ? { ...t, title: newTitle } : t) } : s) });
+    if (newTitle) {
+      updateProjectContext({
+        ...selectedProject,
+        stages: selectedProject.stages.map(s =>
+          s.id === stageId
+            ? {
+                ...s,
+                subtasks: s.subtasks.map(t =>
+                  t.id === subtaskId ? { ...t, title: newTitle } : t
+                )
+              }
+            : s
+        )
+      });
+    }
   };
 
   const addSubtask = (stageId) => {
     const title = prompt("输入新拆解任务：");
-    if (title) updateProjectContext({ ...selectedProject, stages: selectedProject.stages.map(s => s.id === stageId ? { ...s, subtasks: [...s.subtasks, { id: Date.now(), title, completed: false }] } : s) });
+    if (title) {
+      updateProjectContext({
+        ...selectedProject,
+        stages: selectedProject.stages.map(s =>
+          s.id === stageId
+            ? {
+                ...s,
+                subtasks: [...s.subtasks, { id: Date.now(), title, completed: false }]
+              }
+            : s
+        )
+      });
+    }
   };
 
   const addLog = () => {
     const title = prompt("输入记录标题：");
     if (!title) return;
     const text = prompt("输入记录详情：");
-    updateProjectContext({ ...selectedProject, logs: [...selectedProject.logs, { id: Date.now(), title, text: text || '' }] });
+    updateProjectContext({
+      ...selectedProject,
+      logs: [...selectedProject.logs, { id: Date.now(), title, text: text || '' }]
+    });
   };
 
   const editLog = (logId, field, oldValue) => {
     const newValue = prompt(`修改记录：`, oldValue);
-    if (newValue) updateProjectContext({ ...selectedProject, logs: selectedProject.logs.map(l => l.id === logId ? { ...l, field: newValue } : l) });
+    if (newValue) {
+      updateProjectContext({
+        ...selectedProject,
+        logs: selectedProject.logs.map(l =>
+          l.id === logId ? { ...l, [field]: newValue } : l
+        )
+      });
+    }
   };
 
   const sortTasks = (tasksList) => {
@@ -121,24 +204,38 @@ export default function GtdPanel({ globalTasks, setGlobalTasks, globalProjects, 
     });
   };
 
-  const handleDragStart = (e, taskId) => e.dataTransfer.setData('draggedTaskId', taskId);
-  
-  const handleDragOver = (e) => e.preventDefault(); 
+  const handleDragStart = (e, taskId) => {
+    e.dataTransfer.setData('draggedTaskId', taskId);
+  };
 
-  // 【同步云端】拖拽任务修改状态
+  const handleDragOver = (e) => e.preventDefault();
+
   const handleDrop = (e, targetStatus) => {
     const taskId = parseInt(e.dataTransfer.getData('draggedTaskId'), 10);
-    const updatedTasks = globalTasks.map(t => t.id === taskId ? { ...t, status: targetStatus } : t);
-    setGlobalTasks(updatedTasks);
-    const updatedTask = updatedTasks.find(t => t.id === taskId);
-    saveToCloud('task', updatedTask);
+    const updatedTask = globalTasks.find(t => t.id === taskId);
+    if (!updatedTask) return;
+
+    const newTasks = globalTasks.map(t =>
+      t.id === taskId ? { ...t, status: targetStatus } : t
+    );
+    setGlobalTasks(newTasks);
+    saveToCloud('task', { ...updatedTask, status: targetStatus });
   };
 
   const renderTaskCard = (task) => (
     <div key={task.id} className={`task-card ${task.completed ? 'task-completed' : ''}`} draggable onDragStart={(e) => handleDragStart(e, task.id)} style={{ cursor: 'grab', borderLeft: task.priority === 'high' ? '4px solid #555' : task.priority === 'medium' ? '4px solid #999' : 'none' }}>
-      <div className="task-header"><input type="checkbox" checked={task.completed} onChange={() => handleToggleTask(task.id)} /><span className="task-title">{task.title}</span>{task.completed && <button onClick={() => handleDeleteTask(task.id)} className="task-delete-btn">删除</button>}</div>
+      <div className="task-header">
+        <input type="checkbox" checked={task.completed} onChange={() => handleToggleTask(task.id)} />
+        <span className="task-title">{task.title}</span>
+        {task.completed && <button onClick={() => handleDeleteTask(task.id)} className="task-delete-btn">删除</button>}
+      </div>
       <p className="task-desc">{task.desc}</p>
-      <div className="task-meta"><span style={{ fontWeight: task.priority === 'high' ? 'bold' : 'normal', color: task.priority === 'high' ? '#333' : '#999' }}>[{task.priority === 'high' ? '高' : task.priority === 'medium' ? '中' : '低'}] {task.time}</span><span className="task-project">{task.project}</span></div>
+      <div className="task-meta">
+        <span style={{ fontWeight: task.priority === 'high' ? 'bold' : 'normal', color: task.priority === 'high' ? '#333' : '#999' }}>
+          [{task.priority === 'high' ? '高' : task.priority === 'medium' ? '中' : '低'}] {task.time}
+        </span>
+        <span className="task-project">{task.project}</span>
+      </div>
     </div>
   );
 
@@ -151,33 +248,57 @@ export default function GtdPanel({ globalTasks, setGlobalTasks, globalProjects, 
       <div className="panel-container">
         
         <div className="panel-left kanban-board">
-          <div className="kanban-column" onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, 'inbox')}><h3 className="kanban-title">📥 收件箱</h3><div className="kanban-content">{sortTasks(safeTasks.filter(t => t.status === 'inbox')).map(renderTaskCard)}</div></div>
-          <div className="kanban-column" onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, 'nextStep')}><h3 className="kanban-title">🚀 下一步行动</h3><div className="kanban-content">{sortTasks(safeTasks.filter(t => t.status === 'nextStep')).map(renderTaskCard)}</div></div>
-          <div className="kanban-column" onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, 'waiting')}><h3 className="kanban-title">⏳ 等待箱</h3><div className="kanban-content">{sortTasks(safeTasks.filter(t => t.status === 'waiting')).map(renderTaskCard)}</div></div>
-          <div className="kanban-column" onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, 'maybe')}><h3 className="kanban-title">💡 也许将来</h3><div className="kanban-content">{sortTasks(safeTasks.filter(t => t.status === 'maybe')).map(renderTaskCard)}</div></div>
+          <div className="kanban-column" onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, 'inbox')}>
+            <h3 className="kanban-title">📥 收件箱</h3>
+            <div className="kanban-content">{sortTasks(safeTasks.filter(t => t.status === 'inbox')).map(renderTaskCard)}</div>
+          </div>
+          <div className="kanban-column" onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, 'nextStep')}>
+            <h3 className="kanban-title">🚀 下一步行动</h3>
+            <div className="kanban-content">{sortTasks(safeTasks.filter(t => t.status === 'nextStep')).map(renderTaskCard)}</div>
+          </div>
+          <div className="kanban-column" onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, 'waiting')}>
+            <h3 className="kanban-title">⏳ 等待箱</h3>
+            <div className="kanban-content">{sortTasks(safeTasks.filter(t => t.status === 'waiting')).map(renderTaskCard)}</div>
+          </div>
+          <div className="kanban-column" onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, 'maybe')}>
+            <h3 className="kanban-title">💡 也许将来</h3>
+            <div className="kanban-content">{sortTasks(safeTasks.filter(t => t.status === 'maybe')).map(renderTaskCard)}</div>
+          </div>
         </div>
 
         <div className="panel-right">
-           <div className="panel-card project-area">
+          <div className="panel-card project-area">
             <h3 className="panel-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>{showCompletedProjects ? '已归档项目' : '进行中的项目'}</span>
-              <span className="header-toggle-link" onClick={() => setShowCompletedProjects(!showCompletedProjects)}>{showCompletedProjects ? '返回进行中' : '查看已完成'}</span>
+              <span className="header-toggle-link" onClick={() => setShowCompletedProjects(!showCompletedProjects)}>
+                {showCompletedProjects ? '返回进行中' : '查看已完成'}
+              </span>
             </h3>
             <div className="vertical-scroll">
-              {/* 👇 这里我彻底修复：只显示真正的项目，不显示任何任务 */}
+
+              {/* ====================== 修复 2：进行中项目只显示未完成、未删除 ====================== */}
               {safeProjects
-                .filter(p => showCompletedProjects ? p.status === '已完成' : p.status !== '已完成')
+                .filter(p => {
+                  if (showCompletedProjects) {
+                    return p.status === '已完成';
+                  } else {
+                    return p.status !== '已完成' && p.status !== '删除';
+                  }
+                })
                 .map((proj) => (
-                <div key={proj.id} className={`project-card ${proj.status === '已完成' ? 'proj-completed' : ''}`} onClick={() => handleProjectClick(proj.id)}>
-                  <div className="proj-card-header"><h4>{proj.name} <span>({proj.status})</span></h4>
-                    <div className="proj-actions">
-                      {proj.status !== '已完成' && <button onClick={(e) => handleCompleteProject(e, proj.id)} className="action-btn btn-finish">完成</button>}
-                      <button onClick={(e) => handleDeleteProject(e, proj.id)} className="action-btn btn-delete">删除</button>
+                  <div key={proj.id} className={`project-card ${proj.status === '已完成' ? 'proj-completed' : ''}`} onClick={() => handleProjectClick(proj.id)}>
+                    <div className="proj-card-header">
+                      <h4>{proj.name} <span>({proj.status})</span></h4>
+                      <div className="proj-actions">
+                        {proj.status !== '已完成' && (
+                          <button onClick={(e) => handleCompleteProject(e, proj.id)} className="action-btn btn-finish">完成</button>
+                        )}
+                        <button onClick={(e) => handleDeleteProject(e, proj.id)} className="action-btn btn-delete">删除</button>
+                      </div>
                     </div>
+                    <p>{proj.desc}</p>
                   </div>
-                  <p>{proj.desc}</p>
-                </div>
-              ))}
+                ))}
             </div>
           </div>
           
