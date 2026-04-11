@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import './SchedulePanel.css';
 
-export default function SchedulePanel({ globalTasks = [], setGlobalTasks, globalProjects = [] }) {
+// 【新增】添加 saveToCloud 参数
+export default function SchedulePanel({ globalTasks = [], setGlobalTasks, globalProjects = [], saveToCloud }) {
   const [currentDate, setCurrentDate] = useState(new Date(2026, 3, 5)); 
   const [selectedDate, setSelectedDate] = useState(new Date(2026, 3, 5));
 
@@ -53,15 +54,18 @@ export default function SchedulePanel({ globalTasks = [], setGlobalTasks, global
   };
   const handleDateClick = (date) => setSelectedDate(date);
 
-  // ==================== 核心导入逻辑 ====================
-  // 1. 导入普通看板任务
+  // ==================== 核心导入逻辑（已同步云端）====================
+  // 1. 导入普通看板任务 + 同步云端
   const handleImportTask = (task) => {
+    const updatedTask = { ...task, status: 'schedule', date: formatDateStr(selectedDate) };
     setGlobalTasks(globalTasks.map(t => 
-      t.id === task.id ? { ...t, status: 'schedule', date: formatDateStr(selectedDate) } : t
+      t.id === task.id ? updatedTask : t
     ));
+    // 同步到云端
+    saveToCloud('task', updatedTask);
   };
 
-  // 2. 导入项目中的拆解子任务
+  // 2. 导入项目中的拆解子任务 + 同步云端
   const handleImportProjectSubtask = (proj, subtask) => {
     const newTask = {
       id: Date.now(),
@@ -75,6 +79,8 @@ export default function SchedulePanel({ globalTasks = [], setGlobalTasks, global
       completed: subtask.completed
     };
     setGlobalTasks([newTask, ...globalTasks]); 
+    // 同步到云端
+    saveToCloud('task', newTask);
   };
 
   return (
@@ -133,9 +139,16 @@ export default function SchedulePanel({ globalTasks = [], setGlobalTasks, global
               currentTasks.map(task => (
                 <div key={task.id} className={`daily-task-card ${task.completed ? 'completed' : ''}`}>
                   <div className="daily-task-header">
-                    <input type="checkbox" checked={task.completed} onChange={() => {
-                      setGlobalTasks(globalTasks.map(t => t.id === task.id ? {...t, completed: !t.completed} : t));
-                    }}/>
+                    <input 
+                      type="checkbox" 
+                      checked={task.completed} 
+                      onChange={() => {
+                        // 【同步云端】切换任务完成状态
+                        const updatedTask = { ...task, completed: !task.completed };
+                        setGlobalTasks(globalTasks.map(t => t.id === task.id ? updatedTask : t));
+                        saveToCloud('task', updatedTask);
+                      }}
+                    />
                     <span className="daily-task-title">{task.title}</span>
                   </div>
                   <div className="daily-task-body">

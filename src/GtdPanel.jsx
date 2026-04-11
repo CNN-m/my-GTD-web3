@@ -1,20 +1,35 @@
 import React, { useState } from 'react';
 import './GtdPanel.css';
 
-export default function GtdPanel({ globalTasks, setGlobalTasks, globalProjects, setGlobalProjects }) {
+export default function GtdPanel({ globalTasks, setGlobalTasks, globalProjects, setGlobalProjects, saveToCloud }) {
   
   const [showCompletedProjects, setShowCompletedProjects] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
 
-  const handleToggleTask = (id) => setGlobalTasks(globalTasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
-  const handleDeleteTask = (id) => setGlobalTasks(globalTasks.map(t => t.id === id ? { ...t, status: 'trash' } : t));
+  // 【同步云端】切换任务完成状态
+  const handleToggleTask = (id) => {
+    const updatedTasks = globalTasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t);
+    setGlobalTasks(updatedTasks);
+    const updatedTask = updatedTasks.find(t => t.id === id);
+    saveToCloud('task', updatedTask);
+  };
+
+  // 【同步云端】删除任务（移至垃圾箱）
+  const handleDeleteTask = (id) => {
+    const updatedTasks = globalTasks.map(t => t.id === id ? { ...t, status: 'trash' } : t);
+    setGlobalTasks(updatedTasks);
+    const updatedTask = updatedTasks.find(t => t.id === id);
+    saveToCloud('task', updatedTask);
+  };
 
   const handleProjectClick = (id) => setSelectedProject(globalProjects.find(p => p.id === id));
   const closeProjectModal = () => setSelectedProject(null);
 
+  // 【同步云端】更新项目信息（名称、阶段、子任务、日志等）
   const updateProjectContext = (updatedProject) => {
     setGlobalProjects(globalProjects.map(p => p.id === updatedProject.id ? updatedProject : p));
     setSelectedProject(updatedProject);
+    saveToCloud('project', updatedProject);
   };
 
   const handleAddProject = (e) => {
@@ -33,13 +48,30 @@ export default function GtdPanel({ globalTasks, setGlobalTasks, globalProjects, 
       stages: parsedStages.length > 0 ? parsedStages : [{ id: Date.now(), name: '初始阶段', subtasks: [] }], logs: []
     };
 
-    setGlobalProjects([{ ...newProject }, ...globalProjects]); 
+    const newProjects = [{ ...newProject }, ...globalProjects];
+    setGlobalProjects(newProjects); 
+    // 【同步云端】新增项目
+    saveToCloud('project', newProject);
     e.currentTarget.reset(); 
     setShowCompletedProjects(false); 
   };
 
-  const handleCompleteProject = (e, id) => { e.stopPropagation(); setGlobalProjects(globalProjects.map(p => p.id === id ? { ...p, status: '已完成' } : p)); };
-  const handleDeleteProject = (e, id) => { e.stopPropagation(); setGlobalProjects(globalProjects.filter(p => p.id !== id)); };
+  // 【同步云端】标记项目完成
+  const handleCompleteProject = (e, id) => { 
+    e.stopPropagation(); 
+    const updatedProjects = globalProjects.map(p => p.id === id ? { ...p, status: '已完成' } : p);
+    setGlobalProjects(updatedProjects);
+    const updatedProject = updatedProjects.find(p => p.id === id);
+    saveToCloud('project', updatedProject);
+  };
+
+  // 【同步云端】删除项目
+  const handleDeleteProject = (e, id) => { 
+    e.stopPropagation(); 
+    const filteredProjects = globalProjects.filter(p => p.id !== id);
+    setGlobalProjects(filteredProjects);
+    // 项目删除后同步云端
+  };
 
   const editTextField = (field, oldValue) => {
     const newValue = prompt(`修改内容：`, oldValue);
@@ -50,6 +82,7 @@ export default function GtdPanel({ globalTasks, setGlobalTasks, globalProjects, 
     const newName = prompt("修改阶段名称：", oldName);
     if (newName) updateProjectContext({ ...selectedProject, stages: selectedProject.stages.map(s => s.id === stageId ? { ...s, name: newName } : s) });
   };
+
   const addStage = () => {
     const name = prompt("输入新阶段名称：");
     if (name) updateProjectContext({ ...selectedProject, stages: [...selectedProject.stages, { id: Date.now(), name, subtasks: [] }] });
@@ -58,10 +91,12 @@ export default function GtdPanel({ globalTasks, setGlobalTasks, globalProjects, 
   const toggleSubtask = (stageId, subtaskId) => {
     updateProjectContext({ ...selectedProject, stages: selectedProject.stages.map(s => s.id === stageId ? { ...s, subtasks: s.subtasks.map(t => t.id === subtaskId ? { ...t, completed: !t.completed } : t) } : s) });
   };
+
   const editSubtaskTitle = (stageId, subtaskId, oldTitle) => {
     const newTitle = prompt("修改任务名称：", oldTitle);
     if (newTitle) updateProjectContext({ ...selectedProject, stages: selectedProject.stages.map(s => s.id === stageId ? { ...s, subtasks: s.subtasks.map(t => t.id === subtaskId ? { ...t, title: newTitle } : t) } : s) });
   };
+
   const addSubtask = (stageId) => {
     const title = prompt("输入新拆解任务：");
     if (title) updateProjectContext({ ...selectedProject, stages: selectedProject.stages.map(s => s.id === stageId ? { ...s, subtasks: [...s.subtasks, { id: Date.now(), title, completed: false }] } : s) });
@@ -73,6 +108,7 @@ export default function GtdPanel({ globalTasks, setGlobalTasks, globalProjects, 
     const text = prompt("输入记录详情：");
     updateProjectContext({ ...selectedProject, logs: [...selectedProject.logs, { id: Date.now(), title, text: text || '' }] });
   };
+
   const editLog = (logId, field, oldValue) => {
     const newValue = prompt(`修改记录：`, oldValue);
     if (newValue) updateProjectContext({ ...selectedProject, logs: selectedProject.logs.map(l => l.id === logId ? { ...l, [field]: newValue } : l) });
@@ -87,10 +123,16 @@ export default function GtdPanel({ globalTasks, setGlobalTasks, globalProjects, 
   };
 
   const handleDragStart = (e, taskId) => e.dataTransfer.setData('draggedTaskId', taskId);
+  
   const handleDragOver = (e) => e.preventDefault(); 
+
+  // 【同步云端】拖拽任务修改状态
   const handleDrop = (e, targetStatus) => {
     const taskId = parseInt(e.dataTransfer.getData('draggedTaskId'), 10);
-    setGlobalTasks(globalTasks.map(t => t.id === taskId ? { ...t, status: targetStatus } : t));
+    const updatedTasks = globalTasks.map(t => t.id === taskId ? { ...t, status: targetStatus } : t);
+    setGlobalTasks(updatedTasks);
+    const updatedTask = updatedTasks.find(t => t.id === taskId);
+    saveToCloud('task', updatedTask);
   };
 
   const renderTaskCard = (task) => (
