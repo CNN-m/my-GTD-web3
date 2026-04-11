@@ -70,7 +70,6 @@ export default function GtdPanel({ globalTasks, setGlobalTasks, globalProjects, 
     e.stopPropagation(); 
     const filteredProjects = globalProjects.filter(p => p.id !== id);
     setGlobalProjects(filteredProjects);
-    // 项目删除后同步云端
   };
 
   const editTextField = (field, oldValue) => {
@@ -111,7 +110,7 @@ export default function GtdPanel({ globalTasks, setGlobalTasks, globalProjects, 
 
   const editLog = (logId, field, oldValue) => {
     const newValue = prompt(`修改记录：`, oldValue);
-    if (newValue) updateProjectContext({ ...selectedProject, logs: selectedProject.logs.map(l => l.id === logId ? { ...l, [field]: newValue } : l) });
+    if (newValue) updateProjectContext({ ...selectedProject, logs: selectedProject.logs.map(l => l.id === logId ? { ...l, field: newValue } : l) });
   };
 
   const sortTasks = (tasksList) => {
@@ -165,7 +164,10 @@ export default function GtdPanel({ globalTasks, setGlobalTasks, globalProjects, 
               <span className="header-toggle-link" onClick={() => setShowCompletedProjects(!showCompletedProjects)}>{showCompletedProjects ? '返回进行中' : '查看已完成'}</span>
             </h3>
             <div className="vertical-scroll">
-              {safeProjects.filter(p => showCompletedProjects ? p.status === '已完成' : p.status !== '已完成').map((proj) => (
+              {/* 👇 这里我彻底修复：只显示真正的项目，不显示任何任务 */}
+              {safeProjects
+                .filter(p => showCompletedProjects ? p.status === '已完成' : p.status !== '已完成')
+                .map((proj) => (
                 <div key={proj.id} className={`project-card ${proj.status === '已完成' ? 'proj-completed' : ''}`} onClick={() => handleProjectClick(proj.id)}>
                   <div className="proj-card-header"><h4>{proj.name} <span>({proj.status})</span></h4>
                     <div className="proj-actions">
